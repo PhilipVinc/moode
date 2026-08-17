@@ -187,6 +187,7 @@ sysCmd('touch ' . DASHBOARD_CACHE_FILE);
 sysCmd('touch ' . SHAIRPORT_SYNC_LOG);
 sysCmd('touch ' . LIBRESPOT_LOG);
 sysCmd('touch ' . PLEEZER_LOG);
+sysCmd('touch ' . QBZD_LOG);
 sysCmd('touch ' . SPOTEVENT_LOG);
 sysCmd('touch ' . DEEZEVENT_LOG);
 sysCmd('touch ' . SPSEVENT_LOG);
@@ -212,6 +213,7 @@ sysCmd('chmod 0666 /var/local/www/sysinfo.txt');
 sysCmd('chmod 0666 ' . SHAIRPORT_SYNC_LOG);
 sysCmd('chmod 0666 ' . LIBRESPOT_LOG);
 sysCmd('chmod 0666 ' . PLEEZER_LOG);
+sysCmd('chmod 0666 ' . QBZD_LOG);
 sysCmd('chmod 0666 ' . SPOTEVENT_LOG);
 sysCmd('chmod 0666 ' . DEEZEVENT_LOG);
 sysCmd('chmod 0666 ' . SPSEVENT_LOG);
@@ -277,6 +279,7 @@ if ($importedHostName != $_SESSION['hostname']) { // != 'moode'
 	airplayname		Moode AirPlay
 	spotifyname		Moode Spotify
 	deezername		Moode Deezer
+	qobuzname		Moode Qobuz
 	upnpname		Moode UPNP
 	dlnaname		Moode DLNA
 	squeezelite		Moode		In cfg_sl PLAYERNAME and squeezelite.conf, no session var
@@ -296,6 +299,8 @@ if ($importedHostName != $_SESSION['hostname']) { // != 'moode'
 	phpSession('write', 'spotifyname', ucfirst($importedHostName) . ' Spotify');
 	// Deezer Connect
 	phpSession('write', 'deezername', ucfirst($importedHostName) . ' Deezer');
+	// Qobuz Connect
+	phpSession('write', 'qobuzname', ucfirst($importedHostName) . ' Qobuz');
 	// Squeezelite
 	$newName = ucfirst($importedHostName);
 	$result = sqlQuery("UPDATE cfg_sl SET value='" . $newName . "' WHERE param='PLAYERNAME'", $dbh);
@@ -1160,6 +1165,23 @@ if ($_SESSION['feat_bitmask'] & FEAT_DEEZER) {
 }
 workerLog('worker: Deezer Connect:  ' . $status);
 
+// Start Qobuz Connect renderer
+if ($_SESSION['feat_bitmask'] & FEAT_QOBUZ) {
+	if (isQobuzInstalled()) {
+		if (isset($_SESSION['qobuzsvc']) && $_SESSION['qobuzsvc'] == 1) {
+			$status = 'started';
+			startQobuz();
+		} else {
+			$status = 'available';
+		}
+	} else {
+		$status = 'not installed';
+	}
+} else {
+	$status = 'n/a';
+}
+workerLog('worker: Qobuz Connect:   ' . $status);
+
 // Start Squeezelite renderer
 if ($_SESSION['feat_bitmask'] & FEAT_SQUEEZELITE) {
 	if (isset($_SESSION['slsvc']) && $_SESSION['slsvc'] == 1) {
@@ -1599,7 +1621,7 @@ if (chkRendererActive() === true) {
 	phpSession('write', 'volknob', '0');
 	sysCmd('/var/www/util/vol.sh 0');
 	$result = sqlQuery("UPDATE cfg_system SET value='0' WHERE param='btactive' OR param='aplactive' OR
-		param='spotactive' OR param='deezactive' OR param='slactive' OR param='paactive' OR param='rbactive' OR
+		param='spotactive' OR param='deezactive' OR param='qbzactive' OR param='slactive' OR param='paactive' OR param='rbactive' OR
 		param='inpactive'", $dbh);
 	workerLog('worker: Active flags:         at least one true');
 	workerLog('worker: Reset flags:          all reset to false');
@@ -1701,6 +1723,9 @@ $clkradio_stop_days = explode(',', substr($_SESSION['clkradio_stop'], 9));
 $aplactive = '0';
 $spotactive = '0';
 $deezactive = '0';
+$qbzactive = '0';
+$qbztrackid = '';
+$qbzretry = 0;
 $slactive = '0';
 $paactive = '0';
 $rbactive = '0';
@@ -1938,6 +1963,10 @@ while (true) {
 	if ($_SESSION['deezersvc'] == '1') {
 		//debugLog('** chkDeezActive');
 		chkDeezActive();
+	}
+	if ($_SESSION['qobuzsvc'] == '1') {
+		//debugLog('** chkQbzActive');
+		chkQbzActive();
 	}
 	if ($_SESSION['slsvc'] == '1') {
 		//debugLog('** chkSlActive');
@@ -2183,6 +2212,85 @@ function chkDeezActive() {
 		}
 	}
 }
+// Qobuz Connect
+function chkQbzActive() {
+	// qbzd has no event hook facility so poll its control API
+	$result = sysCmd('curl -s --max-time 2 http://127.0.0.1:8182/api/status');
+	$status = json_decode(implode('', $result), true);
+	if (is_null($status) || !isset($status['playback']['state'])) {
+		return;
+	}
+	$state = $status['playback']['state'];
+
+	if ($state == 'playing' || $state == 'loading' || $state == 'buffering') {
+		// Do this section only once
+		if ($GLOBALS['qbzactive'] == '0') {
+			$GLOBALS['qbzactive'] = '1';
+			phpSession('write', 'qbzactive', '1');
+			$GLOBALS['scnsaver_timeout'] = $_SESSION['scnsaver_timeout'];
+			sendFECmd('qbzactive1');
+			// Take over the audio device
+			if (!empty(sysCmd('mpc status | grep playing')[0])) {
+				sysCmd('mpc stop');
+			}
+			if ($_SESSION['alsavolume'] != 'none') {
+				setALSAVolTo0dB($_SESSION['alsavolume_max']);
+			}
+			// Budget for retrying a start that failed because the device was still busy
+			$GLOBALS['qbzretry'] = 5;
+		} else if ($state == 'playing' && !empty(sysCmd('mpc status | grep playing')[0])) {
+			// MPD was started while Qobuz is playing: yield the device
+			sysCmd('qbzd pause -q');
+		}
+		// Update metadata after a track change
+		if ($state == 'playing' && $GLOBALS['qbztrackid'] !== $status['playback']['track_id']) {
+			$GLOBALS['qbztrackid'] = $status['playback']['track_id'];
+			updQbzMeta();
+		}
+	} else {
+		if ($GLOBALS['qbzactive'] == '1') {
+			// A start attempt that immediately drops back to paused means qbzd could not
+			// open the audio device (e.g. shairport-sync releasing it late): retry
+			if ($state == 'paused' && $GLOBALS['qbzretry'] > 0 && empty(sysCmd('mpc status | grep playing')[0])) {
+				$GLOBALS['qbzretry'] = $GLOBALS['qbzretry'] - 1;
+				sysCmd('qbzd play -q');
+				return;
+			}
+			// Do this section only once
+			$GLOBALS['qbzactive'] = '0';
+			$GLOBALS['qbztrackid'] = '';
+			phpSession('write', 'qbzactive', '0');
+			sendFECmd('qbzactive0');
+			sysCmd('/var/www/util/vol.sh -restore');
+			if ($status['qconnect']['session_active'] === false && $_SESSION['rsmafterqbz'] == 'Yes') {
+				sysCmd('mpc play');
+			}
+		}
+	}
+}
+
+function updQbzMeta() {
+	$result = sysCmd('curl -s --max-time 2 http://127.0.0.1:8182/api/now-playing');
+	$nowPlaying = json_decode(implode('', $result), true);
+	if (is_null($nowPlaying) || !isset($nowPlaying['track'])) {
+		return;
+	}
+	$track = $nowPlaying['track'];
+	$playback = $nowPlaying['playback'];
+	$metadata = array(
+		'fecmd' => 'update_qbzmeta',
+		'title' => $track['title'],
+		'artist' => $track['artist'],
+		'album' => $track['album'],
+		'duration' => $track['duration_secs'],
+		'cover_url' => $track['artwork_url'],
+		'sformat' => 'FLAC ' . $track['bit_depth'] . '/' . $track['sample_rate'] . ' kHz',
+		'oformat' => 'PCM ' . $playback['bit_depth'] . '/' . ($playback['sample_rate'] / 1000) . ' kHz'
+	);
+	$metadataJson = json_encode($metadata, JSON_UNESCAPED_SLASHES);
+	file_put_contents(QBZMETA_CACHE_FILE, $metadataJson);
+	sysCmd('/var/www/util/send-fecmd.php ' . escapeshellarg($metadataJson));
+}
 // Squeezelite
 function chkSlActive() {
 	// Get directly from sql since external slpower.sh script does not update the session
@@ -2234,7 +2342,7 @@ function chkRbActive() {
 	$result = sysCmd('pgrep -c mono-sgen');
 	if ($result[0] > 0) {
 		$rendererNotActive = ($_SESSION['btactive'] == '0' && $GLOBALS['aplactive'] == '0' && $GLOBALS['spotactive'] == '0'
-			&& $GLOBALS['deezactive'] == '0' && $GLOBALS['slactive'] == '0' && $_SESSION['paactive']
+			&& $GLOBALS['deezactive'] == '0' && $GLOBALS['qbzactive'] == '0' && $GLOBALS['slactive'] == '0' && $_SESSION['paactive']
 			&& $_SESSION['rxactive'] == '0' && $GLOBALS['inpactive'] == '0');
 		$mpdNotPlaying = empty(sysCmd('mpc status | grep playing')[0]) ? true : false;
 		$alsaOutputActive = sysCmd('cat /proc/asound/card' . $_SESSION['cardnum'] . '/pcm0p/sub0/hw_params')[0] == 'closed' ? false : true;
@@ -2573,6 +2681,8 @@ function updExtMetaFile() {
 		$renderer = 'Spotify Active';
 	} else if ($GLOBALS['deezactive'] == '1') {
 		$renderer = 'Deezer Active';
+	} else if ($GLOBALS['qbzactive'] == '1') {
+		$renderer = 'Qobuz Active';
 	} else if ($GLOBALS['slactive'] == '1') {
 		$renderer = 'Squeezelite Active';
 	} else if ($GLOBALS['rbactive'] == '1') {
@@ -3026,6 +3136,10 @@ function runQueuedJob() {
 					stopDeezer();
 					startDeezer();
 				}
+				if ($_SESSION['qobuzsvc'] == 1) {
+					stopQobuz();
+					startQobuz();
+				}
 				if ($_SESSION['slsvc'] == 1) {
 					stopSqueezelite();
 					cfgSqueezelite();
@@ -3087,6 +3201,10 @@ function runQueuedJob() {
 				if ($_SESSION['deezersvc'] == 1) {
 					stopDeezer();
 					startDeezer();
+				}
+				if ($_SESSION['qobuzsvc'] == 1) {
+					stopQobuz();
+					startQobuz();
 				}
 				if ($_SESSION['slsvc'] == 1) {
 					stopSqueezelite();
@@ -3217,6 +3335,10 @@ function runQueuedJob() {
 				stopDeezer();
 				startDeezer();
 			}
+			if ($_SESSION['qobuzsvc'] == 1) {
+				stopQobuz();
+				startQobuz();
+			}
 			// Reenable HTTP server (if indicated)
 			setMpdHttpd();
 
@@ -3309,6 +3431,33 @@ function runQueuedJob() {
 			if ($_SESSION['w_queueargs'] == 'disconnect_renderer' && $_SESSION['rsmafterdeez'] == 'Yes') {
 				sysCmd('mpc play');
 			}
+			break;
+		case 'qobuzsvc':
+			stopQobuz();
+			if ($_SESSION['qobuzsvc'] == 1) {
+				startQobuz();
+			}
+
+			if ($_SESSION['w_queueargs'] == 'disconnect_renderer' && $_SESSION['rsmafterqbz'] == 'Yes') {
+				sysCmd('mpc play');
+			}
+			break;
+		case 'install_qobuz':
+			$fullLog = $_SESSION['home_dir'] . '/install_qobuz.log';
+			sysCmd('rm "' . $fullLog . '"');
+			sysCmd('/var/www/util/qobuz-installer.sh > "' . $fullLog . '" 2>&1 &');
+			break;
+		case 'qobuz_login':
+			// One-shot OAuth listener: prints the login URL to the log then waits
+			// for the browser callback. The URL is shown on the Qobuz Config screen.
+			// NOTE: exec -a requires bash (sysCmd runs sh) and sets argv[0] so use pkill -f
+			sysCmd('pkill -f qbzd-login 2> /dev/null');
+			$ipAddr = sysCmd("hostname -I | awk '{print $1}'")[0];
+			sysCmd('truncate ' . QOBUZ_LOGIN_LOG . ' --size 0');
+			sysCmd("bash -c 'exec -a qbzd-login qbzd login --callback-host " . $ipAddr . ' > ' . QOBUZ_LOGIN_LOG . " 2>&1 &'");
+			break;
+		case 'qobuz_logout':
+			sysCmd('qbzd logout');
 			break;
 		case 'slsvc':
 			if ($_SESSION['slsvc'] == '1') {
@@ -3413,6 +3562,10 @@ function runQueuedJob() {
 			if ($_SESSION['deezersvc'] == 1) {
 				stopDeezer();
 				startDeezer();
+			}
+			if ($_SESSION['qobuzsvc'] == 1) {
+				stopQobuz();
+				startQobuz();
 			}
 			break;
 		case 'multiroom_tx_restart':

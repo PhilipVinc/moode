@@ -329,6 +329,65 @@ function updateDeezCredentials($email, $password) {
 	fclose($fh);
 }
 
+// Qobuz Connect
+function startQobuz() {
+	$result = sqlRead('cfg_qobuz', sqlConnect());
+	$cfgQobuz = array();
+	foreach ($result as $row) {
+		$cfgQobuz[$row['param']] = $row['value'];
+	}
+
+	// Output device: ALSA hint names defined in /etc/alsa/conf.d/qbzd-devices.conf
+	$device = $_SESSION['audioout'] == 'Local' ? 'Moode Audio Output' : 'Moode Bluetooth Stream';
+
+	// Logging
+	$logging = $_SESSION['debuglog'] == '1' ? ' > ' . QBZD_LOG : ' > /dev/null';
+
+	// Start the daemon then configure it via its control API
+	$cmd = 'qbzd run' . $logging . ' 2>&1 &';
+	debugLog('startQobuz(): (' . $cmd . ')');
+	sysCmd($cmd);
+
+	// Wait for the control API to come up (up to 5 secs)
+	for ($i = 0; $i < 10; $i++) {
+		usleep(500000);
+		$result = sysCmd('curl -s -o /dev/null -w "%{http_code}" --max-time 2 http://127.0.0.1:8182/api/status');
+		if (!empty($result) && $result[0] == '200') {
+			break;
+		}
+	}
+
+	// Apply settings (persisted to disk by qbzd)
+	sysCmd('qbzd settings set audio.device "' . $device . '"');
+	sysCmd('qbzd settings set playback.quality ' . $cfgQobuz['quality']);
+	sysCmd('qbzd settings set audio.gapless_enabled ' . ($cfgQobuz['gapless'] == 'Yes' ? 'true' : 'false'));
+	sysCmd('qbzd settings set audio.normalization_enabled ' . ($cfgQobuz['normalize_volume'] == 'Yes' ? 'true' : 'false'));
+	sysCmd('qbzd settings set playback.mpris false');
+	sysCmd('qbzd settings set qconnect.device_name "' . $_SESSION['qobuzname'] . '"');
+	sysCmd('qbzd qconnect enable');
+}
+function stopQobuz() {
+	sysCmd('killall -s9 qbzd');
+
+	// Local
+	sysCmd('/var/www/util/vol.sh -restore');
+	if (CamillaDSP::isMPD2CamillaDSPVolSyncEnabled()) {
+		sysCmd('systemctl restart mpd2cdspvolume');
+	}
+	// Multiroom receivers
+	if ($_SESSION['multiroom_tx'] == "On" ) {
+		updReceiverVol('-restore');
+	}
+
+	phpSession('write', 'qbzactive', '0');
+	$GLOBALS['qbzactive'] = '0';
+	sendFECmd('qbzactive0');
+}
+function isQobuzInstalled() {
+	$result = sysCmd('which qbzd');
+	return empty($result) ? false : true;
+}
+
 // UPnP
 function startUPnP() {
 	sysCmd('systemctl start upmpdcli');
@@ -404,6 +463,7 @@ function stopAllRenderers() {
 		'airplaysvc' => 'stopAirPlay',
 		'spotifysvc' => 'stopSpotify',
 		'deezersvc'  => 'stopDeezer',
+		'qobuzsvc'	 => 'stopQobuz',
 		'upnpsvc'	 => 'stopUPnP',
 		'slsvc'		 => 'stopSqueezeLite',
 		'pasvc'		 => 'stopPlexamp',

@@ -18,6 +18,15 @@ AIRPLAY AND SPOTIFY CONNECT
 AirPlay and Spotify Connect renderers are not included in moOde but they can be
 built and installed via the INSTALL button in Renderer Config.
 
+QOBUZ CONNECT
+
+The Qobuz Connect renderer (qbzd) is not included in moOde but it can be
+installed via the INSTALL button in Renderer Config. Unlike AirPlay and Spotify
+Connect which are built from source code, the INSTALL button downloads a
+prebuilt qbzd binary and thus the process is fast, typically about 1 minute.
+
+The full log is in the Home Directory and is named "install_qobuz.log".
+
 INSTALLATION PROCESS
 
 Clicking the INSTALL button initiates an automated process that first builds

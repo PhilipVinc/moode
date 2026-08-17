@@ -1,0 +1,79 @@
+<!--
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright 2014 The moOde audio player project / Tim Curtis
+*/
+-->
+<div id="container">
+<div class="container">
+	<h1 class="ren-config">Qobuz Connect</h1>
+
+	<!-- TEMPLATE -->
+
+    <form class="form-horizontal" action="" method="post">
+    	<legend>Settings
+			<button class="legend-config btn btn-medium btn-primary btn-submit" type="submit" name="save" value="1">Save</button>
+		</legend>
+
+		<div class="control-group">
+
+			<div class="config-horiz-rule">General</div>
+
+			<label class="control-label" for="quality">Audio quality</label>
+			<div class="controls">
+				<select id="quality" class="config-select-large" name="config[quality]">
+					$_select[quality]
+				</select>
+				<a aria-label="Help" class="config-info-toggle" data-cmd="info-quality" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
+				<span id="info-quality" class="config-help-info">
+					Maximum streaming quality. Tracks not available at the selected quality are streamed at the highest quality available for your subscription.
+                </span>
+			</div>
+
+			<label class="control-label" for="gapless">Gapless playback</label>
+			<div class="controls">
+				<select id="gapless" class="config-select-large" name="config[gapless]">
+					$_select[gapless]
+				</select>
+				<a aria-label="Help" class="config-info-toggle" data-cmd="info-gapless" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
+				<span id="info-gapless" class="config-help-info">
+					Play consecutive tracks without a gap of silence between them.
+				</span>
+			</div>
+
+			<label class="control-label" for="normalize-volume">Normalize volume</label>
+			<div class="controls">
+				<select id="normalize-volume" class="config-select-large" name="config[normalize_volume]">
+					$_select[normalize_volume]
+				</select>
+				<a aria-label="Help" class="config-info-toggle" data-cmd="info-normalize-volume" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
+				<span id="info-normalize-volume" class="config-help-info">
+					Adjusts the volume of all songs played so that they sound as though they are of equal loudness.
+				</span>
+			</div>
+
+			<div class="config-horiz-rule">Account</div>
+
+			<label class="control-label">Status</label>
+			<div class="controls">
+				<span class="config-help-static">$_qobuz_account_status</span>
+			</div>
+
+			<div class="$_qobuz_login_hide">
+				<div class="controls">
+					<button class="btn btn-medium btn-primary config-btn btn-submit" type="submit" name="qobuz_login" value="1">Login</button>
+					<span class="config-btn-after">Qobuz account</span>
+					$_qobuz_login_url_msg
+				</div>
+			</div>
+
+			<div class="$_qobuz_logout_hide">
+				<div class="controls">
+					<button class="btn btn-medium btn-primary config-btn btn-submit" type="submit" name="qobuz_logout" value="1">Logout</button>
+					<span class="config-btn-after">Qobuz account</span>
+				</div>
+			</div>
+		</div>
+	</form>
+</div>
+</div>

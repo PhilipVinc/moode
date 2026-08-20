@@ -373,13 +373,20 @@ $_feat_qobuz = $_SESSION['feat_bitmask'] & FEAT_QOBUZ ? '' : 'hide';
 if (isQobuzInstalled() === true) {
 	$_install_qobuz_hide = 'hide';
 	$_qobuz_version_hide = '';
-	$_qobuz_installed_version = 'Version: ' . sysCmd('qbzd --version | awk \'{print $2}\'')[0];
+	$_qobuz_installed_version = 'Version: ' . qbzdVersion();
+	// Point at the exact source of a fork build so the installed bits are
+	// traceable — these are pre-release builds of unmerged work.
+	$_qobuz_source_link = isQbzdForkBuild() ?
+		'<br><a class="target-blank-link" href="' . QBZD_FORK_URL . '" target="_blank">' .
+			'Qobuz Connect pairing branch (fork build)</a>' :
+		'';
 	$_qobuz_svcbtn_disable = '';
 	$_qobuz_editlink_disable = '';
 } else {
 	$_install_qobuz_hide = '';
 	$_qobuz_version_hide = 'hide';
 	$_qobuz_installed_version = '';
+	$_qobuz_source_link = '';
 	$_qobuz_svcbtn_disable = 'disabled';
 	$_qobuz_editlink_disable = 'onclick="return false;"';
 }

@@ -57,6 +57,12 @@ const APLMETA_CACHE_FILE = '/var/local/www/aplmeta.json';
 const DEEZMETA_CACHE_FILE = '/var/local/www/deezmeta.json';
 const DEEZ_CREDENTIALS_FILE = '/etc/deezer/deezer.toml';
 const QBZMETA_CACHE_FILE = '/var/local/www/qbzmeta.json';
+// Build id of the installed qbzd, recorded by qobuz-installer.sh. The binary
+// only knows its own Cargo version, so a moOde-specific build (2.0.2.moode7)
+// would otherwise be indistinguishable from plain upstream 2.0.2.
+const QBZD_BUILD_FILE = '/var/local/www/qbzd-build';
+// Source of the moOde qbzd builds while Qobuz Connect pairing is unmerged.
+const QBZD_FORK_URL = 'https://github.com/PhilipVinc/qbz/tree/feature/external/qbzd-connect-pairing';
 const SPOTMETA_CACHE_FILE = '/var/local/www/spotmeta.json';
 const ITUNES_API_BASE_URL = 'https://itunes.apple.com/search';
 // SQLite

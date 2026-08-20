@@ -10,12 +10,16 @@
 # for the current architecture, verifies it and installs binary + service.
 #
 
-# Pairing test builds come from the fork's standalone qbzd releases
-# (fork-qbzd-release.yml, tags qbzd-v<version>) until the pairing work is
-# upstream — then revert to vicrodh/qbz and the v<version> tag scheme.
-QBZD_VERSION="2.0.2-pairing.7"
+# moOde builds come from the fork's standalone qbzd releases
+# (fork-qbzd-release.yml, tags qbzd-v<version>) while Qobuz Connect pairing is
+# unmerged — then revert to vicrodh/qbz and the plain v<version> tag scheme.
+# The `.moodeN` suffix marks a moOde build of upstream 2.0.2: the binary reports
+# only its Cargo version, so the suffix is recorded in QBZD_BUILD_FILE for the
+# Renderer Config screen to display.
+QBZD_VERSION="2.0.2.moode7"
 QBZD_REPO="https://github.com/PhilipVinc/qbz"
 QBZD_TAG="qbzd-v$QBZD_VERSION"
+QBZD_BUILD_FILE="/var/local/www/qbzd-build"
 
 # Initialize the step counter
 STEP=0
@@ -74,6 +78,9 @@ install -Dm755 "qbzd-$QBZD_VERSION-linux-$ARCH/qbzd" /usr/local/bin/qbzd
 if [ $? -ne 0 ]; then
 	cancel_update "** Install failed"
 fi
+# Record what was installed: `qbzd --version` reports the Cargo version only,
+# so without this a moOde build is indistinguishable from upstream 2.0.2.
+echo "$QBZD_VERSION" > $QBZD_BUILD_FILE
 
 # 4 - Finish up
 STEP=$((STEP + 1))
@@ -93,6 +100,6 @@ if systemctl list-unit-files qbzd.service > /dev/null 2>&1; then
 	fi
 fi
 systemctl daemon-reload
-message_log "** Installed qbzd $(/usr/local/bin/qbzd --version | awk '{print $2}')"
+message_log "** Installed qbzd $QBZD_VERSION (binary reports $(/usr/local/bin/qbzd --version | awk '{print $2}'))"
 message_log "Install complete: turn the renderer on in Renderer Config"
 exit 0

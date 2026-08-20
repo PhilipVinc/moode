@@ -12,6 +12,17 @@ $dbh = sqlConnect();
 phpSession('open');
 
 if (isset($_POST['save']) && $_POST['save'] == '1') {
+	// Local pairing and a fixed account login are mutually exclusive in this
+	// UI: turning pairing on drops the login (and any in-flight browser login)
+	// so the renderer restart below comes up account-less. The single-slot job
+	// queue is taken by the qobuzsvc restart, so log out synchronously here.
+	if (isset($_POST['config']['pairing']) && $_POST['config']['pairing'] == 'Yes') {
+		$prevPairing = sqlQuery("SELECT value FROM cfg_qobuz WHERE param='pairing'", $dbh);
+		if (!empty($prevPairing[0]['value']) && $prevPairing[0]['value'] == 'No') {
+			sysCmd('pkill -f qbzd-login 2> /dev/null');
+			sysCmd('qbzd logout');
+		}
+	}
 	foreach ($_POST['config'] as $key => $value) {
 		chkValue($key, $value);
 		sqlUpdate('cfg_qobuz', $dbh, $key, $value);
@@ -22,7 +33,11 @@ if (isset($_POST['save']) && $_POST['save'] == '1') {
 	submitJob('qobuzsvc', '', $notify['title'], $notify['msg']);
 }
 if (isset($_POST['qobuz_login']) && $_POST['qobuz_login'] == '1') {
-	submitJob('qobuz_login', '', NOTIFY_TITLE_INFO, 'Login started, refresh this screen to view the login link');
+	// The button is disabled while pairing is on; guard the POST as well.
+	$pairing = sqlQuery("SELECT value FROM cfg_qobuz WHERE param='pairing'", $dbh);
+	if (empty($pairing[0]['value']) || $pairing[0]['value'] != 'Yes') {
+		submitJob('qobuz_login', '', NOTIFY_TITLE_INFO, 'Login started, refresh this screen to view the login link');
+	}
 }
 if (isset($_POST['qobuz_logout']) && $_POST['qobuz_logout'] == '1') {
 	submitJob('qobuz_logout', '', NOTIFY_TITLE_INFO, 'Logged out from Qobuz');
@@ -41,6 +56,17 @@ foreach ($result as $row) {
 if (!isset($cfgQobuz['pairing'])) {
 	sqlInsert('cfg_qobuz', $dbh, "'pairing', 'Yes'");
 	$cfgQobuz['pairing'] = 'Yes';
+}
+
+// Local pairing supplies the account (the casting app hands over its own
+// session), so the fixed-account Login is gated while it is on.
+$_qobuz_login_disabled = '';
+$_qobuz_login_hint = '';
+if ($cfgQobuz['pairing'] == 'Yes') {
+	$_qobuz_login_disabled = 'disabled';
+	$_qobuz_login_hint = '<span class="config-help-static">No login needed: Local pairing is on, ' .
+		'so the Qobuz app hands this player its own account when casting. ' .
+		'To use a fixed account instead, set Local pairing to No and Save.</span>';
 }
 
 $_select['quality'] .= "<option value=\"mp3\" " . (($cfgQobuz['quality'] == 'mp3') ? "selected" : "") . ">MP3 320 kbps</option>\n";
@@ -67,12 +93,7 @@ if ($_SESSION['qobuzsvc'] == '1') {
 			(empty($status['auth']['subscription']) ? '' : ' (' . $status['auth']['subscription'] . ')');
 	} else {
 		$_qobuz_login_hide = '';
-		// With the pairing surface up, a login is optional: the Qobuz app hands
-		// the player its own session tokens when someone casts to it.
-		$pairingOn = isset($status['qconnect']['pairing']) && $status['qconnect']['pairing'] === true;
-		$_qobuz_account_status = $pairingOn ?
-			'Not logged in (optional: any Qobuz app on this network can cast to this player)' :
-			'Not logged in';
+		$_qobuz_account_status = 'Not logged in';
 		// A login in progress prints its URL to the login log
 		$loginLog = file_exists(QOBUZ_LOGIN_LOG) ? file_get_contents(QOBUZ_LOGIN_LOG) : '';
 		if (preg_match('#https?://\S+#', $loginLog, $matches) === 1) {

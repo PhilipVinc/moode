@@ -216,10 +216,21 @@ if [[ $QBZ_EVENT == "TrackStarted" ]]; then
 	# Playback started: replenish the failed-start retry budget
 	echo $RETRY_BUDGET > $RETRY_FILE
 	SFORMAT="FLAC $QBZ_BIT_DEPTH/$QBZ_SAMPLE_RATE kHz"
-	# Output format (post volume normalization/resampling) from the control API
-	OFORMAT=$(curl -s --max-time 2 $QBZD_API/api/now-playing | jq -r 'select(.playback.bit_depth != null) | "PCM \(.playback.bit_depth)/\(.playback.sample_rate / 1000) kHz"')
+	# Output format from the control API. /api/status, NOT /api/now-playing: the
+	# latter is login-gated and the pairing flow never logs in (the casting app
+	# hands over its own session), so it answers needs_auth and this fell back to
+	# claiming the OUTPUT was FLAC. /api/status also carries the rate the DEVICE
+	# runs at (qbzd 2.0.2.moode25+), which is the number that differs from the
+	# source whenever something in the chain resamples.
+	AUDIO_JSON=$(curl -s --max-time 2 $QBZD_API/api/status | jq -c '.audio // {}' 2>/dev/null)
+	OFORMAT=$(jq -rn --argjson a "${AUDIO_JSON:-{\}}" '
+		(if $a.output_sample_rate != null then $a.output_sample_rate else $a.sample_rate end) as $r
+		| if $a.bit_depth != null and $r != null then "PCM \($a.bit_depth)/\($r / 1000) kHz" else empty end
+	' 2>/dev/null)
 	if [[ -z $OFORMAT ]]; then
-		OFORMAT=$SFORMAT
+		# Never fall back to SFORMAT: the decoder always emits PCM, so echoing the
+		# source container here is the one answer that is certainly wrong.
+		OFORMAT="PCM $QBZ_BIT_DEPTH/$QBZ_SAMPLE_RATE kHz"
 	fi
 	METADATA_JSON=$(jq -n -c \
 		--arg a "update_qbzmeta" \

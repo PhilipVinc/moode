@@ -1,0 +1,63 @@
+# Payload manifest for the Qobuz Connect preview package.
+#
+# pack.sh reads this file: it is the single source of truth for WHAT ships and
+# WHERE each file comes from. Columns are tab-separated:
+#
+#   <provenance>  <path>
+#
+# Paths are repo-relative and are also the archive-relative paths. The installer
+# maps `www/...` to /var/www/... and everything else to /... , so the layout here
+# is the on-disk layout.
+#
+# Provenance:
+#   branch     take moode/<path> from this branch as-is (the common case)
+#   branch+min apply the release-build include transform after copying:
+#              include('footer.php') -> include("footer.min.php"). moOde release
+#              images ship minified includes, so a PHP page copied straight from
+#              the source tree renders with no footer and no JS on a real Pi.
+#   built      gulp output, produced by pack.sh into build/develop/js/. Never
+#              committed.
+#   vendored   payload-10.3.2/<path>, captured FROM a moOde 10.3.2 Pi. These four
+#              could not be taken from the branch: the branch versions are built
+#              against `develop`, and installing them would revert 10.3.2's own
+#              fixes. Recapture them if the branch ever changes the Qobuz parts
+#              of these files — pack.sh warns when that happens.
+#
+# The shipped copy of this file (inside the tarball) has an md5 column appended.
+#
+# NOT shipped, deliberately:
+#   www/relnotes.txt, www/CONTRIBS.html — the branch versions are `develop`'s
+#     release notes and attribution list. Installing them would replace a
+#     tester's 10.3.2 notes with a different release's, to add one line each.
+#     The attribution lives in README.md instead. (These belong in the upstream
+#     PR, where they are correct.)
+#   *.orig — leftovers from live editing on the Pi.
+
+branch		etc/alsa/conf.d/qbzd-devices.conf
+branch		usr/local/bin/moodeutl
+branch		var/local/www/commandw/qbzevent.sh
+branch		www/audioinfo.php
+branch		www/command/renderer.php
+branch		www/daemon/watchdog.sh
+vendored	www/daemon/worker.php
+branch		www/inc/audio.php
+branch		www/inc/autocfg.php
+vendored	www/inc/common.php
+branch		www/inc/constants.php
+branch		www/inc/peripheral.php
+branch		www/inc/renderer.php
+branch		www/install_renderers.txt
+built		www/js/lib.min.js
+built		www/js/main.min.js
+branch+min	www/qbz-config.php
+branch+min	www/ren-config.php
+branch		www/setup_renderers.txt
+branch		www/templates/qbz-config.html
+branch		www/templates/ren-config.html
+vendored	www/templates/sys-config.html
+branch		www/util/qobuz-installer.sh
+branch		www/util/renderer-onoff.php
+branch		www/util/restart-renderer.php
+branch		www/util/send-fecmd.php
+branch		www/util/sysinfo.sh
+vendored	www/util/sysutil.sh

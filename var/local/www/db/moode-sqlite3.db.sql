@@ -265,7 +265,7 @@ INSERT INTO cfg_qobuz (id, param, value) VALUES (5, 'buffer_seconds', '2');
 INSERT INTO cfg_qobuz (id, param, value) VALUES (6, 'volume_mode', 'auto');
 INSERT INTO cfg_qobuz (id, param, value) VALUES (7, 'output_mode', 'auto');
 INSERT INTO cfg_qobuz (id, param, value) VALUES (8, 'stream_first', 'Yes');
-INSERT INTO cfg_qobuz (id, param, value) VALUES (9, 'track_cache', 'No');
+INSERT INTO cfg_qobuz (id, param, value) VALUES (9, 'track_cache', 'Yes');
 INSERT INTO cfg_qobuz (id, param, value) VALUES (10, 'quality_fallback', 'fallback');
 
 -- Table: cfg_radio

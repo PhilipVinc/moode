@@ -55,7 +55,7 @@ foreach ($result as $row) {
 // Self-heal a cfg_qobuz that predates a param: without the row, the generic
 // UPDATE in the save handler would silently no-op.
 $qobuzDefaults = array('pairing' => 'Yes', 'buffer_seconds' => '2', 'volume_mode' => 'auto',
-	'output_mode' => 'auto', 'stream_first' => 'Yes', 'track_cache' => 'No',
+	'output_mode' => 'auto', 'stream_first' => 'Yes', 'track_cache' => 'Yes',
 	'quality_fallback' => 'fallback');
 foreach ($qobuzDefaults as $param => $default) {
 	if (!isset($cfgQobuz[$param])) {
@@ -143,8 +143,8 @@ $_select['volume_mode'] .= "<option value=\"locked\" "   . (($cfgQobuz['volume_m
 $_select['stream_first'] .= "<option value=\"Yes\" " . (($cfgQobuz['stream_first'] == 'Yes') ? "selected" : "") . ">As soon as buffered (Default)</option>\n";
 $_select['stream_first'] .= "<option value=\"No\" "  . (($cfgQobuz['stream_first'] == 'No')  ? "selected" : "") . ">After the full track downloads</option>\n";
 
-$_select['track_cache'] .= "<option value=\"No\" "  . (($cfgQobuz['track_cache'] == 'No')  ? "selected" : "") . ">Stream only, do not cache (Default)</option>\n";
-$_select['track_cache'] .= "<option value=\"Yes\" " . (($cfgQobuz['track_cache'] == 'Yes') ? "selected" : "") . ">Cache tracks on disk</option>\n";
+$_select['track_cache'] .= "<option value=\"Yes\" " . (($cfgQobuz['track_cache'] == 'Yes') ? "selected" : "") . ">Cache tracks on disk (Default)</option>\n";
+$_select['track_cache'] .= "<option value=\"No\" "  . (($cfgQobuz['track_cache'] == 'No')  ? "selected" : "") . ">Stream only, do not cache</option>\n";
 
 $_select['quality_fallback'] .= "<option value=\"fallback\" " . (($cfgQobuz['quality_fallback'] == 'fallback') ? "selected" : "") . ">Play at a lower quality (Default)</option>\n";
 $_select['quality_fallback'] .= "<option value=\"skip\" "     . (($cfgQobuz['quality_fallback'] == 'skip')     ? "selected" : "") . ">Skip the track</option>\n";

@@ -111,8 +111,32 @@ activate () {
 	fi
 }
 
+# True while qbzd still owns playback: playing, or paused with a live Connect
+# session (the session keeps the audio device across a pause, AirPlay parity).
+# Fail-safe: an unreachable control API answers "not active" so a dead daemon
+# always releases the UI.
+still_active () {
+	local STATE
+	STATE=$(curl -s --max-time 2 $QBZD_API/api/status | \
+		jq -r '"\(.playback.state) \(.qconnect.session_active)"' 2>/dev/null)
+	case "$STATE" in
+		"playing true"|"paused true") return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
 deactivate () {
 	if [[ $QBZACTIVE == '0' ]]; then
+		return 0
+	fi
+	# Verify against the daemon before tearing the render down. Transient
+	# stopped/error events fire during normal operation — a gapless track
+	# transition, a superseded stream being abandoned on track change — and
+	# acting on them dropped the overlay mid-playback, so every later UI
+	# rebuild (click, resize, page load) showed the library panel instead.
+	debug_log "Deact?:  from $QBZ_EVENT (state=$QBZ_STATE session_active=$QBZ_SESSION_ACTIVE)"
+	if still_active; then
+		debug_log "Keep:    render (daemon still active)"
 		return 0
 	fi
 	QBZACTIVE='0'

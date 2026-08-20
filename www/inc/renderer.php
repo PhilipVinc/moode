@@ -371,7 +371,20 @@ function startQobuz() {
 	}
 }
 function stopQobuz() {
-	sysCmd('killall -s9 qbzd');
+	// Graceful first: on SIGTERM qbzd leaves the Qobuz Connect session, so the
+	// cloud drops this renderer. SIGKILL skips that, leaving a zombie renderer
+	// registered mid-playback — the next handoff rejoins that same session, the
+	// cloud replays the stale "playing <old track> at <old position>" state,
+	// and the app ends up showing 0:00 with nothing playing. SIGKILL stays as
+	// the fallback so a wedged daemon still releases the audio device.
+	sysCmd('killall qbzd 2> /dev/null');
+	for ($i = 0; $i < 15; $i++) {
+		if (empty(sysCmd('pgrep -x qbzd'))) {
+			break;
+		}
+		usleep(200000);
+	}
+	sysCmd('killall -s9 qbzd 2> /dev/null');
 
 	// Local
 	sysCmd('/var/www/util/vol.sh -restore');

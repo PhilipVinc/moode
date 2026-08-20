@@ -10,8 +10,12 @@
 # for the current architecture, verifies it and installs binary + service.
 #
 
-QBZD_VERSION="2.0.2"
-QBZD_REPO="https://github.com/vicrodh/qbz"
+# Pairing test builds come from the fork's standalone qbzd releases
+# (fork-qbzd-release.yml, tags qbzd-v<version>) until the pairing work is
+# upstream — then revert to vicrodh/qbz and the v<version> tag scheme.
+QBZD_VERSION="2.0.2-pairing.1"
+QBZD_REPO="https://github.com/PhilipVinc/qbz"
+QBZD_TAG="qbzd-v$QBZD_VERSION"
 
 # Initialize the step counter
 STEP=0
@@ -54,7 +58,7 @@ TARBALL="qbzd-$QBZD_VERSION-linux-$ARCH.tar.gz"
 # 2 - Download release
 STEP=$((STEP + 1))
 message_log "** Step $STEP-$TOTAL_STEPS: Download $TARBALL"
-wget -q "$QBZD_REPO/releases/download/v$QBZD_VERSION/$TARBALL" -O "$TARBALL"
+wget -q "$QBZD_REPO/releases/download/$QBZD_TAG/$TARBALL" -O "$TARBALL"
 if [ $? -ne 0 ]; then
 	cancel_update "** Download failed"
 fi

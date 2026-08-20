@@ -1724,8 +1724,6 @@ $aplactive = '0';
 $spotactive = '0';
 $deezactive = '0';
 $qbzactive = '0';
-$qbztrackid = '';
-$qbzretry = 0;
 $slactive = '0';
 $paactive = '0';
 $rbactive = '0';
@@ -2214,82 +2212,33 @@ function chkDeezActive() {
 }
 // Qobuz Connect
 function chkQbzActive() {
-	// qbzd has no event hook facility so poll its control API
-	$result = sysCmd('curl -s --max-time 2 http://127.0.0.1:8182/api/status');
-	$status = json_decode(implode('', $result), true);
-	if (is_null($status) || !isset($status['playback']['state'])) {
-		return;
-	}
-	$state = $status['playback']['state'];
-
-	if ($state == 'playing' || $state == 'loading' || $state == 'buffering') {
+	// Get directly from SQL since qbzevent.sh script can't update the session
+	$result = sqlQuery("SELECT value FROM cfg_system WHERE param='qbzactive'", $GLOBALS['dbh']);
+	if ($result[0]['value'] == '1') {
 		// Do this section only once
 		if ($GLOBALS['qbzactive'] == '0') {
 			$GLOBALS['qbzactive'] = '1';
-			phpSession('write', 'qbzactive', '1');
 			$GLOBALS['scnsaver_timeout'] = $_SESSION['scnsaver_timeout'];
-			sendFECmd('qbzactive1');
-			// Take over the audio device
-			if (!empty(sysCmd('mpc status | grep playing')[0])) {
-				sysCmd('mpc stop');
-			}
-			if ($_SESSION['alsavolume'] != 'none') {
-				setALSAVolTo0dB($_SESSION['alsavolume_max']);
-			}
-			// Budget for retrying a start that failed because the device was still busy
-			$GLOBALS['qbzretry'] = 5;
-		} else if ($state == 'playing' && !empty(sysCmd('mpc status | grep playing')[0])) {
-			// MPD was started while Qobuz is playing: yield the device
+			// NOTE: This is now done by the qbzevent.sh script
+			//sendFECmd('qbzactive1');
+		} else if (!empty(sysCmd('mpc status | grep playing')[0])) {
+			// MPD started while Qobuz is playing: pause Qobuz so the two never
+			// fight over the audio device (most-recent-wins). The Qobuz Active
+			// overlay already blocks MPD starts from the UI, but not from paths
+			// that bypass it: external MPD clients, mpc from a shell, or the
+			// Alarm clock. Other renderers keep the device and let the MPD play
+			// attempt fail; Qobuz yields instead. This has to live here rather
+			// than in qbzevent.sh because the trigger is an MPD-side action
+			// that qbzd cannot emit an event for.
 			sysCmd('qbzd pause -q');
 		}
-		// Update metadata after a track change
-		if ($state == 'playing' && $GLOBALS['qbztrackid'] !== $status['playback']['track_id']) {
-			$GLOBALS['qbztrackid'] = $status['playback']['track_id'];
-			updQbzMeta();
-		}
 	} else {
+		// Do this section only once
 		if ($GLOBALS['qbzactive'] == '1') {
-			// A start attempt that immediately drops back to paused means qbzd could not
-			// open the audio device (e.g. shairport-sync releasing it late): retry
-			if ($state == 'paused' && $GLOBALS['qbzretry'] > 0 && empty(sysCmd('mpc status | grep playing')[0])) {
-				$GLOBALS['qbzretry'] = $GLOBALS['qbzretry'] - 1;
-				sysCmd('qbzd play -q');
-				return;
-			}
-			// Do this section only once
 			$GLOBALS['qbzactive'] = '0';
-			$GLOBALS['qbztrackid'] = '';
-			phpSession('write', 'qbzactive', '0');
 			sendFECmd('qbzactive0');
-			sysCmd('/var/www/util/vol.sh -restore');
-			if ($status['qconnect']['session_active'] === false && $_SESSION['rsmafterqbz'] == 'Yes') {
-				sysCmd('mpc play');
-			}
 		}
 	}
-}
-
-function updQbzMeta() {
-	$result = sysCmd('curl -s --max-time 2 http://127.0.0.1:8182/api/now-playing');
-	$nowPlaying = json_decode(implode('', $result), true);
-	if (is_null($nowPlaying) || !isset($nowPlaying['track'])) {
-		return;
-	}
-	$track = $nowPlaying['track'];
-	$playback = $nowPlaying['playback'];
-	$metadata = array(
-		'fecmd' => 'update_qbzmeta',
-		'title' => $track['title'],
-		'artist' => $track['artist'],
-		'album' => $track['album'],
-		'duration' => $track['duration_secs'],
-		'cover_url' => $track['artwork_url'],
-		'sformat' => 'FLAC ' . $track['bit_depth'] . '/' . $track['sample_rate'] . ' kHz',
-		'oformat' => 'PCM ' . $playback['bit_depth'] . '/' . ($playback['sample_rate'] / 1000) . ' kHz'
-	);
-	$metadataJson = json_encode($metadata, JSON_UNESCAPED_SLASHES);
-	file_put_contents(QBZMETA_CACHE_FILE, $metadataJson);
-	sysCmd('/var/www/util/send-fecmd.php ' . escapeshellarg($metadataJson));
 }
 // Squeezelite
 function chkSlActive() {

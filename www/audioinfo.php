@@ -8,6 +8,7 @@ require_once __DIR__ . '/inc/common.php';
 require_once __DIR__ . '/inc/alsa.php';
 require_once __DIR__ . '/inc/cdsp.php';
 require_once __DIR__ . '/inc/mpd.php';
+require_once __DIR__ . '/inc/renderer.php';
 require_once __DIR__ . '/inc/music-library.php';
 require_once __DIR__ . '/inc/session.php';
 require_once __DIR__ . '/inc/sql.php';
@@ -224,6 +225,19 @@ if ($_SESSION['invert_polarity'] == '1') {
 }
 
 $outputModeName = ALSA_OUTPUT_MODE_NAME[$_SESSION['alsa_output_mode']];
+
+// Qobuz Connect routed straight to the DAC does not pass through moOde's chain
+// at all, so the DSP stages and output mode above describe something that is
+// not in the signal path. Replace them with what qbzd actually opened.
+if ($qbzActive == '1') {
+	$qbzRouting = qobuzDirectRouting();
+	if ($qbzRouting['direct']) {
+		$dsp = '';
+		$peppyAlsa = '';
+		$outputMode = 'hw';
+		$outputModeName = ALSA_OUTPUT_MODE_NAME['hw'];
+	}
+}
 
 // Peppy ALSA
 $peppyAlsa = ($_SESSION['peppy_display'] == '1' || $_SESSION['enable_peppyalsa'] == '1') ? 'PeppyALSA &rarr; ' : '';

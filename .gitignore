@@ -13,6 +13,7 @@
 __MACOSX
 # Other
 /build
+/dist
 /node_modules
 /www/index.html
 /logs

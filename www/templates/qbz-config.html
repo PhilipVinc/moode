@@ -41,6 +41,32 @@
 				</span>
 			</div>
 
+			<label class="control-label" for="buffer-seconds">Buffer</label>
+			<div class="controls">
+				<select id="buffer-seconds" class="config-select-large" name="config[buffer_seconds]">
+					$_select[buffer_seconds]
+				</select>
+				<a aria-label="Help" class="config-info-toggle" data-cmd="info-buffer-seconds" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
+				<span id="info-buffer-seconds" class="config-help-info">
+					How much audio to buffer before playback starts. A larger buffer rides out network
+					hiccups on a slow or wireless connection at the cost of a longer wait when starting
+					a track or switching output to this player.
+				</span>
+			</div>
+
+			<label class="control-label" for="volume-mode">Volume control</label>
+			<div class="controls">
+				<select id="volume-mode" class="config-select-large" name="config[volume_mode]">
+					$_select[volume_mode]
+				</select>
+				<a aria-label="Help" class="config-info-toggle" data-cmd="info-volume-mode" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
+				<span id="info-volume-mode" class="config-help-info">
+					Software lets the Qobuz app's volume slider attenuate the stream. Locked keeps the
+					stream at full scale for bit-perfect output, so the app's slider does nothing and
+					volume must come from your amplifier or DAC.
+				</span>
+			</div>
+
 			<label class="control-label" for="normalize-volume">Normalize volume</label>
 			<div class="controls">
 				<select id="normalize-volume" class="config-select-large" name="config[normalize_volume]">

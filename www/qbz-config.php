@@ -51,11 +51,14 @@ $cfgQobuz = array();
 foreach ($result as $row) {
 	$cfgQobuz[$row['param']] = $row['value'];
 }
-// Self-heal a cfg_qobuz that predates the pairing param: without the row,
-// the generic UPDATE in the save handler would silently no-op.
-if (!isset($cfgQobuz['pairing'])) {
-	sqlInsert('cfg_qobuz', $dbh, "'pairing', 'Yes'");
-	$cfgQobuz['pairing'] = 'Yes';
+// Self-heal a cfg_qobuz that predates a param: without the row, the generic
+// UPDATE in the save handler would silently no-op.
+$qobuzDefaults = array('pairing' => 'Yes', 'buffer_seconds' => '2', 'volume_mode' => 'software');
+foreach ($qobuzDefaults as $param => $default) {
+	if (!isset($cfgQobuz[$param])) {
+		sqlInsert('cfg_qobuz', $dbh, "'" . $param . "', '" . $default . "'");
+		$cfgQobuz[$param] = $default;
+	}
 }
 
 // Local pairing supplies the account (the casting app hands over its own
@@ -79,6 +82,12 @@ $_select['gapless'] .= "<option value=\"Yes\" " . (($cfgQobuz['gapless'] == 'Yes
 $_select['gapless'] .= "<option value=\"No\" "  . (($cfgQobuz['gapless'] == 'No')  ? "selected" : "") . ">No</option>\n";
 $_select['normalize_volume'] .= "<option value=\"Yes\" " . (($cfgQobuz['normalize_volume'] == 'Yes') ? "selected" : "") . ">Yes</option>\n";
 $_select['normalize_volume'] .= "<option value=\"No\" "  . (($cfgQobuz['normalize_volume'] == 'No')  ? "selected" : "") . ">No (Default)</option>\n";
+foreach (array('2' => '2 seconds (Default)', '5' => '5 seconds', '10' => '10 seconds') as $secs => $label) {
+	$_select['buffer_seconds'] .= "<option value=\"" . $secs . "\" " .
+		(($cfgQobuz['buffer_seconds'] == $secs) ? "selected" : "") . ">" . $label . "</option>\n";
+}
+$_select['volume_mode'] .= "<option value=\"software\" " . (($cfgQobuz['volume_mode'] == 'software') ? "selected" : "") . ">Software (Default)</option>\n";
+$_select['volume_mode'] .= "<option value=\"locked\" "   . (($cfgQobuz['volume_mode'] == 'locked')   ? "selected" : "") . ">Locked at 100%</option>\n";
 
 // Account: login status is read from the qbzd control API (only available when the service is on)
 $_qobuz_login_hide = 'hide';

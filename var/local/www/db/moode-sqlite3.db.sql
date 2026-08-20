@@ -262,6 +262,8 @@ INSERT INTO cfg_qobuz (id, param, value) VALUES (1, 'quality', 'hires_plus');
 INSERT INTO cfg_qobuz (id, param, value) VALUES (2, 'gapless', 'Yes');
 INSERT INTO cfg_qobuz (id, param, value) VALUES (3, 'normalize_volume', 'No');
 INSERT INTO cfg_qobuz (id, param, value) VALUES (4, 'pairing', 'Yes');
+INSERT INTO cfg_qobuz (id, param, value) VALUES (5, 'buffer_seconds', '2');
+INSERT INTO cfg_qobuz (id, param, value) VALUES (6, 'volume_mode', 'software');
 
 -- Table: cfg_radio
 CREATE TABLE cfg_radio (id INTEGER PRIMARY KEY, station CHAR (128), name CHAR (128), type CHAR (1), logo CHAR (128), genre CHAR (32), broadcaster CHAR (32), language CHAR (32), country CHAR (32), region CHAR (32), bitrate CHAR (32), format CHAR (32), geo_fenced CHAR (3), home_page CHAR (32), monitor CHAR (32));

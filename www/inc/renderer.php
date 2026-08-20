@@ -354,6 +354,20 @@ function startQobuz() {
 	sysCmd('qbzd settings set playback.mpris false');
 	sysCmd('qbzd settings set qconnect.device_name "' . $_SESSION['qobuzname'] . '"');
 	sysCmd('qbzd settings set qconnect.pairing ' . (($cfgQobuz['pairing'] ?? 'Yes') == 'Yes' ? 'on' : 'off'));
+	sysCmd('qbzd settings set audio.stream_buffer_seconds ' . ($cfgQobuz['buffer_seconds'] ?? '2'));
+	sysCmd('qbzd settings set qconnect.volume_mode ' . ($cfgQobuz['volume_mode'] ?? 'software'));
+	// Non-interactive quality fallback: the stock value is "ask", which cannot
+	// work on a headless box — there is nobody to answer, so a track the DAC
+	// cannot do at full rate has no defined outcome. Play it at a supported
+	// rate instead of failing.
+	sysCmd('qbzd settings set audio.allow_quality_fallback true');
+	sysCmd('qbzd settings set audio.quality_fallback_behavior always_fallback');
+	// Do not restore a local queue on start. As a Connect renderer the queue
+	// belongs to the controlling app; a restored one is invisible to it and
+	// surfaced as the daemon spontaneously streaming a track nobody asked for
+	// after a restart.
+	sysCmd('qbzd settings set playback.persist_session false');
+	sysCmd('qbzd settings set playback.resume_playback_position false');
 	sysCmd('qbzd qconnect enable');
 
 	// QBZD_HOOK: qbzd forks the script once per daemon event (QBZ_* env vars)

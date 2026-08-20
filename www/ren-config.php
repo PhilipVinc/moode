@@ -165,6 +165,9 @@ if (isset($_POST['update_rsmafterqbz'])) {
 if (isset($_POST['qobuzrestart']) && $_POST['qobuzrestart'] == 1 && $_SESSION['qobuzsvc'] == '1') {
 	submitJob('qobuzsvc', '', NOTIFY_TITLE_INFO, NAME_QOBUZ . NOTIFY_MSG_SVC_MANUAL_RESTART);
 }
+if (isset($_POST['qobuz_clear_credentials']) && $_POST['qobuz_clear_credentials'] == 1) {
+	submitJob('qobuz_clear_credentials', '', NOTIFY_TITLE_INFO, 'Stored Qobuz credentials cleared');
+}
 
 // UPnP client for MPD
 if (isset($_POST['update_upnp_settings'])) {
@@ -390,13 +393,20 @@ if (isQobuzInstalled() === true) {
 	$_qobuz_svcbtn_disable = 'disabled';
 	$_qobuz_editlink_disable = 'onclick="return false;"';
 }
+$_qobuz_login_msg = '';
 if ($_SESSION['qobuzsvc'] == '1') {
 	$result = sysCmd('curl -s --max-time 2 http://127.0.0.1:8182/api/status');
 	$status = json_decode(implode('', $result), true);
-	$_qobuz_login_msg = (isset($status['auth']['state']) && $status['auth']['state'] == 'needs_auth') ?
-		'<span class="config-help-static"><em>Not logged in to Qobuz yet &mdash; use the Edit screen to log in</em></span>' : '';
-} else {
-	$_qobuz_login_msg = '';
+	// "Not logged in" is the NORMAL state with Local pairing on: the casting
+	// Qobuz app hands the player its own session, so nagging about a login
+	// would be telling the user to fix something that is not broken. Only a
+	// fixed-account setup (pairing off) actually needs one.
+	$pairingOn = !isset($status['qconnect']['pairing']) || $status['qconnect']['pairing'] === true;
+	$needsAuth = isset($status['auth']['state']) && $status['auth']['state'] == 'needs_auth';
+	if ($needsAuth && !$pairingOn) {
+		$_qobuz_login_msg = '<span class="config-help-static"><em>Not logged in to Qobuz ' .
+			'&mdash; Local pairing is off, so use the Edit screen to log in</em></span>';
+	}
 }
 $_SESSION['qobuzsvc'] == '1' ? $_qobuz_btn_disable = '' : $_qobuz_btn_disable = 'disabled';
 $_SESSION['qobuzsvc'] == '1' ? $_qobuz_link_disable = '' : $_qobuz_link_disable = 'onclick="return false;"';

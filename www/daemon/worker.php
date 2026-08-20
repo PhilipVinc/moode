@@ -3408,6 +3408,17 @@ function runQueuedJob() {
 		case 'qobuz_logout':
 			sysCmd('qbzd logout');
 			break;
+		case 'qobuz_clear_credentials':
+			// Same effect as Logout on the Qobuz Config screen, but reachable
+			// when the daemon reports needs_auth and the Logout button is
+			// therefore hidden — which is exactly the state a stale or
+			// undecryptable token file leaves behind. Also kills a stuck
+			// browser-login listener and truncates its log so the screen stops
+			// offering a dead login URL.
+			sysCmd('pkill -f qbzd-login 2> /dev/null');
+			sysCmd('truncate ' . QOBUZ_LOGIN_LOG . ' --size 0 2> /dev/null');
+			sysCmd('qbzd logout');
+			break;
 		case 'slsvc':
 			if ($_SESSION['slsvc'] == '1') {
 				cfgSqueezelite();

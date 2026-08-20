@@ -329,6 +329,120 @@ function updateDeezCredentials($email, $password) {
 	fclose($fh);
 }
 
+// Qobuz Connect
+function startQobuz() {
+	$result = sqlRead('cfg_qobuz', sqlConnect());
+	$cfgQobuz = array();
+	foreach ($result as $row) {
+		$cfgQobuz[$row['param']] = $row['value'];
+	}
+
+	// Output device: ALSA hint names defined in /etc/alsa/conf.d/qbzd-devices.conf
+	$device = $_SESSION['audioout'] == 'Local' ? 'Moode Audio Output' : 'Moode Bluetooth Stream';
+
+	// Logging
+	$logging = $_SESSION['debuglog'] == '1' ? ' > ' . QBZD_LOG : ' > /dev/null';
+
+	// Apply settings BEFORE the daemon starts: the pairing listener, its mDNS
+	// device name, and the qconnect startup mode are read once at boot. The
+	// settings CLI writes the stores directly (creating them if needed); its
+	// running-daemon nudge is a harmless no-op while qbzd is down.
+	sysCmd('qbzd settings set audio.device "' . $device . '"');
+	sysCmd('qbzd settings set playback.quality ' . $cfgQobuz['quality']);
+	sysCmd('qbzd settings set audio.gapless_enabled ' . ($cfgQobuz['gapless'] == 'Yes' ? 'true' : 'false'));
+	sysCmd('qbzd settings set audio.normalization_enabled ' . ($cfgQobuz['normalize_volume'] == 'Yes' ? 'true' : 'false'));
+	sysCmd('qbzd settings set playback.mpris false');
+	sysCmd('qbzd settings set qconnect.device_name "' . $_SESSION['qobuzname'] . '"');
+	sysCmd('qbzd settings set qconnect.pairing ' . (($cfgQobuz['pairing'] ?? 'Yes') == 'Yes' ? 'on' : 'off'));
+	sysCmd('qbzd settings set audio.stream_buffer_seconds ' . ($cfgQobuz['buffer_seconds'] ?? '2'));
+	sysCmd('qbzd settings set qconnect.volume_mode ' . ($cfgQobuz['volume_mode'] ?? 'software'));
+	// Non-interactive quality fallback: the stock value is "ask", which cannot
+	// work on a headless box — there is nobody to answer, so a track the DAC
+	// cannot do at full rate has no defined outcome. Play it at a supported
+	// rate instead of failing.
+	sysCmd('qbzd settings set audio.allow_quality_fallback true');
+	sysCmd('qbzd settings set audio.quality_fallback_behavior always_fallback');
+	// Do not restore a local queue on start. As a Connect renderer the queue
+	// belongs to the controlling app; a restored one is invisible to it and
+	// surfaced as the daemon spontaneously streaming a track nobody asked for
+	// after a restart.
+	sysCmd('qbzd settings set playback.persist_session false');
+	sysCmd('qbzd settings set playback.resume_playback_position false');
+	sysCmd('qbzd qconnect enable');
+
+	// QBZD_HOOK: qbzd forks the script once per daemon event (QBZ_* env vars)
+	$cmd = 'QBZD_HOOK=/var/local/www/commandw/qbzevent.sh qbzd run' . $logging . ' 2>&1 &';
+	debugLog('startQobuz(): (' . $cmd . ')');
+	sysCmd($cmd);
+
+	// Wait for the control API to come up (up to 5 secs)
+	for ($i = 0; $i < 10; $i++) {
+		usleep(500000);
+		$result = sysCmd('curl -s -o /dev/null -w "%{http_code}" --max-time 2 http://127.0.0.1:8182/api/status');
+		if (!empty($result) && $result[0] == '200') {
+			break;
+		}
+	}
+}
+function stopQobuz() {
+	// Graceful first: on SIGTERM qbzd leaves the Qobuz Connect session, so the
+	// cloud drops this renderer. SIGKILL skips that, leaving a zombie renderer
+	// registered mid-playback — the next handoff rejoins that same session, the
+	// cloud replays the stale "playing <old track> at <old position>" state,
+	// and the app ends up showing 0:00 with nothing playing. SIGKILL stays as
+	// the fallback so a wedged daemon still releases the audio device.
+	sysCmd('killall qbzd 2> /dev/null');
+	for ($i = 0; $i < 15; $i++) {
+		if (empty(sysCmd('pgrep -x qbzd'))) {
+			break;
+		}
+		usleep(200000);
+	}
+	sysCmd('killall -s9 qbzd 2> /dev/null');
+
+	// Local
+	sysCmd('/var/www/util/vol.sh -restore');
+	if (CamillaDSP::isMPD2CamillaDSPVolSyncEnabled()) {
+		sysCmd('systemctl restart mpd2cdspvolume');
+	}
+	// Multiroom receivers
+	if ($_SESSION['multiroom_tx'] == "On" ) {
+		updReceiverVol('-restore');
+	}
+
+	phpSession('write', 'qbzactive', '0');
+	$GLOBALS['qbzactive'] = '0';
+	sendFECmd('qbzactive0');
+}
+// Version of the installed qbzd. A moOde build stamps its build id into the
+// binary (2.0.2.moode7), so ask the binary first — it describes whatever is
+// actually on disk, even if it was replaced by hand. Older binaries report only
+// their Cargo version (a bare 2.0.2), and for those the id the installer
+// recorded at install time is the better answer.
+function qbzdVersion() {
+	$result = sysCmd('qbzd --version | awk \'{print $2}\'');
+	$reported = empty($result[0]) ? '' : $result[0];
+	if (strpos($reported, 'moode') !== false) {
+		return $reported;
+	}
+	if (file_exists(QBZD_BUILD_FILE)) {
+		$build = trim(file_get_contents(QBZD_BUILD_FILE));
+		if ($build != '') {
+			return $build;
+		}
+	}
+	return $reported == '' ? 'unknown' : $reported;
+}
+// True when the installed qbzd is a moOde fork build rather than an upstream
+// release — the Qobuz Connect pairing work is not upstream yet.
+function isQbzdForkBuild() {
+	return strpos(qbzdVersion(), 'moode') !== false;
+}
+function isQobuzInstalled() {
+	$result = sysCmd('which qbzd');
+	return empty($result) ? false : true;
+}
+
 // UPnP
 function startUPnP() {
 	sysCmd('systemctl start upmpdcli');
@@ -404,6 +518,7 @@ function stopAllRenderers() {
 		'airplaysvc' => 'stopAirPlay',
 		'spotifysvc' => 'stopSpotify',
 		'deezersvc'  => 'stopDeezer',
+		'qobuzsvc'	 => 'stopQobuz',
 		'upnpsvc'	 => 'stopUPnP',
 		'slsvc'		 => 'stopSqueezeLite',
 		'pasvc'		 => 'stopPlexamp',

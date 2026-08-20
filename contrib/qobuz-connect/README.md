@@ -66,9 +66,10 @@ changed since installing.
   output chain exactly as before. Going direct reserves the DAC while a Qobuz session is
   active, so nothing else can play through it meanwhile. Set *Output routing* to
   *Software* to keep the old behaviour unconditionally.
-- **Tracks are not cached by default.** *Track cache* defaults to stream-only, which
-  writes nothing to the SD card — a hi-res track is 60–80 MB. Gapless playback needs the
-  cache, so it is unavailable until you turn caching on; the control says so.
+- **Finished tracks are cached to disk**, so replaying one is instant and gapless
+  playback can load the next track ahead of time. That is about 60–80 MB of SD-card
+  writes per hi-res track; set *Track cache* to stream-only if you would rather spare the
+  card, at the cost of gapless (the control says so when you do).
 - **It replaces ~26 files under `/var/www`, including `js/lib.min.js` and
   `js/main.min.js`.** If you have your own modifications to any of them, they are backed
   up but replaced.

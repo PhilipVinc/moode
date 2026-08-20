@@ -125,7 +125,7 @@ INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (5, 'buffer_seconds', 
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (6, 'volume_mode', 'auto');
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (7, 'output_mode', 'auto');
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (8, 'stream_first', 'Yes');
-INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (9, 'track_cache', 'No');
+INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (9, 'track_cache', 'Yes');
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (10, 'quality_fallback', 'fallback');
 INSERT OR IGNORE INTO cfg_system (id, param, value) VALUES (178, 'qobuzsvc', '0');
 INSERT OR IGNORE INTO cfg_system (id, param, value) VALUES (179, 'qobuzname', 'Moode Qobuz');

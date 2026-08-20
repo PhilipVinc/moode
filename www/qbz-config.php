@@ -36,11 +36,19 @@ $cfgQobuz = array();
 foreach ($result as $row) {
 	$cfgQobuz[$row['param']] = $row['value'];
 }
+// Self-heal a cfg_qobuz that predates the pairing param: without the row,
+// the generic UPDATE in the save handler would silently no-op.
+if (!isset($cfgQobuz['pairing'])) {
+	sqlInsert('cfg_qobuz', $dbh, "'pairing', 'Yes'");
+	$cfgQobuz['pairing'] = 'Yes';
+}
 
 $_select['quality'] .= "<option value=\"mp3\" " . (($cfgQobuz['quality'] == 'mp3') ? "selected" : "") . ">MP3 320 kbps</option>\n";
 $_select['quality'] .= "<option value=\"cd\" " . (($cfgQobuz['quality'] == 'cd') ? "selected" : "") . ">CD 16 bit / 44.1 kHz</option>\n";
 $_select['quality'] .= "<option value=\"hires\" " . (($cfgQobuz['quality'] == 'hires') ? "selected" : "") . ">Hi-Res 24 bit / 96 kHz</option>\n";
 $_select['quality'] .= "<option value=\"hires_plus\" " . (($cfgQobuz['quality'] == 'hires_plus') ? "selected" : "") . ">Hi-Res 24 bit / 192 kHz (Default)</option>\n";
+$_select['pairing'] .= "<option value=\"Yes\" " . (($cfgQobuz['pairing'] == 'Yes') ? "selected" : "") . ">Yes (Default)</option>\n";
+$_select['pairing'] .= "<option value=\"No\" "  . (($cfgQobuz['pairing'] == 'No')  ? "selected" : "") . ">No</option>\n";
 $_select['gapless'] .= "<option value=\"Yes\" " . (($cfgQobuz['gapless'] == 'Yes') ? "selected" : "") . ">Yes (Default)</option>\n";
 $_select['gapless'] .= "<option value=\"No\" "  . (($cfgQobuz['gapless'] == 'No')  ? "selected" : "") . ">No</option>\n";
 $_select['normalize_volume'] .= "<option value=\"Yes\" " . (($cfgQobuz['normalize_volume'] == 'Yes') ? "selected" : "") . ">Yes</option>\n";

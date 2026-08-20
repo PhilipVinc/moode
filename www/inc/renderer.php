@@ -343,7 +343,19 @@ function startQobuz() {
 	// Logging
 	$logging = $_SESSION['debuglog'] == '1' ? ' > ' . QBZD_LOG : ' > /dev/null';
 
-	// Start the daemon then configure it via its control API.
+	// Apply settings BEFORE the daemon starts: the pairing listener, its mDNS
+	// device name, and the qconnect startup mode are read once at boot. The
+	// settings CLI writes the stores directly (creating them if needed); its
+	// running-daemon nudge is a harmless no-op while qbzd is down.
+	sysCmd('qbzd settings set audio.device "' . $device . '"');
+	sysCmd('qbzd settings set playback.quality ' . $cfgQobuz['quality']);
+	sysCmd('qbzd settings set audio.gapless_enabled ' . ($cfgQobuz['gapless'] == 'Yes' ? 'true' : 'false'));
+	sysCmd('qbzd settings set audio.normalization_enabled ' . ($cfgQobuz['normalize_volume'] == 'Yes' ? 'true' : 'false'));
+	sysCmd('qbzd settings set playback.mpris false');
+	sysCmd('qbzd settings set qconnect.device_name "' . $_SESSION['qobuzname'] . '"');
+	sysCmd('qbzd settings set qconnect.pairing ' . (($cfgQobuz['pairing'] ?? 'Yes') == 'Yes' ? 'on' : 'off'));
+	sysCmd('qbzd qconnect enable');
+
 	// QBZD_HOOK: qbzd forks the script once per daemon event (QBZ_* env vars)
 	$cmd = 'QBZD_HOOK=/var/local/www/commandw/qbzevent.sh qbzd run' . $logging . ' 2>&1 &';
 	debugLog('startQobuz(): (' . $cmd . ')');
@@ -357,15 +369,6 @@ function startQobuz() {
 			break;
 		}
 	}
-
-	// Apply settings (persisted to disk by qbzd)
-	sysCmd('qbzd settings set audio.device "' . $device . '"');
-	sysCmd('qbzd settings set playback.quality ' . $cfgQobuz['quality']);
-	sysCmd('qbzd settings set audio.gapless_enabled ' . ($cfgQobuz['gapless'] == 'Yes' ? 'true' : 'false'));
-	sysCmd('qbzd settings set audio.normalization_enabled ' . ($cfgQobuz['normalize_volume'] == 'Yes' ? 'true' : 'false'));
-	sysCmd('qbzd settings set playback.mpris false');
-	sysCmd('qbzd settings set qconnect.device_name "' . $_SESSION['qobuzname'] . '"');
-	sysCmd('qbzd qconnect enable');
 }
 function stopQobuz() {
 	sysCmd('killall -s9 qbzd');

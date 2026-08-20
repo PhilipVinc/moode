@@ -343,8 +343,9 @@ function startQobuz() {
 	// Logging
 	$logging = $_SESSION['debuglog'] == '1' ? ' > ' . QBZD_LOG : ' > /dev/null';
 
-	// Start the daemon then configure it via its control API
-	$cmd = 'qbzd run' . $logging . ' 2>&1 &';
+	// Start the daemon then configure it via its control API.
+	// QBZD_HOOK: qbzd forks the script once per daemon event (QBZ_* env vars)
+	$cmd = 'QBZD_HOOK=/var/local/www/commandw/qbzevent.sh qbzd run' . $logging . ' 2>&1 &';
 	debugLog('startQobuz(): (' . $cmd . ')');
 	sysCmd($cmd);
 

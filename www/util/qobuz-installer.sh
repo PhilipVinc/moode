@@ -80,6 +80,18 @@ STEP=$((STEP + 1))
 message_log "** Step $STEP-$TOTAL_STEPS: Finish up"
 cd /
 rm -rf $WD
+# The standalone qbzd tarball ships a systemd unit for running the daemon on
+# its own. Under moOde the worker owns the daemon lifecycle (startQobuz), so an
+# enabled unit is a second instance competing for the audio device — and its
+# ExecStartPre clears cfg_system.qbzactive, which blanks the Renderer Active
+# overlay every restart attempt. Leave the unit file in place, just disabled.
+if systemctl list-unit-files qbzd.service > /dev/null 2>&1; then
+	if [ "$(systemctl is-enabled qbzd.service 2>/dev/null)" = "enabled" ] || \
+	   [ "$(systemctl is-active qbzd.service 2>/dev/null)" = "active" ]; then
+		message_log "** Disabling qbzd.service (moOde manages the daemon itself)"
+		systemctl disable --now qbzd.service > /dev/null 2>&1
+	fi
+fi
 systemctl daemon-reload
 message_log "** Installed qbzd $(/usr/local/bin/qbzd --version | awk '{print $2}')"
 message_log "Install complete: turn the renderer on in Renderer Config"

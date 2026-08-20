@@ -13,7 +13,7 @@
 # Pairing test builds come from the fork's standalone qbzd releases
 # (fork-qbzd-release.yml, tags qbzd-v<version>) until the pairing work is
 # upstream — then revert to vicrodh/qbz and the v<version> tag scheme.
-QBZD_VERSION="2.0.2-pairing.5"
+QBZD_VERSION="2.0.2-pairing.6"
 QBZD_REPO="https://github.com/PhilipVinc/qbz"
 QBZD_TAG="qbzd-v$QBZD_VERSION"
 

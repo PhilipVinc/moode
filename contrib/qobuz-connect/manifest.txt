@@ -1,0 +1,78 @@
+# Payload manifest for the Qobuz Connect preview package.
+#
+# pack.sh reads this file: it is the single source of truth for WHAT ships and
+# WHERE each file comes from. Columns are tab-separated:
+#
+#   <provenance>  <path>
+#
+# Paths are repo-relative and are also the archive-relative paths. The installer
+# maps `www/...` to /var/www/... and everything else to /... , so the layout here
+# is the on-disk layout.
+#
+# This branch is based on the 10.3.2 RELEASE (upstream/master), not on develop,
+# because 10.3.2 is what the package installs onto. That is the whole reason the
+# provenance list below is short: every payload file can simply come from the
+# branch, and the JS bundles are built from the same release the tester is
+# running.
+#
+# It was originally cut from develop, and that leaked develop-only work onto
+# released Pis: four files had to be vendored from a real 10.3.2 box to avoid
+# reverting fixes the release already had (the touch-display brightness fix in
+# inc/common.php, 10.3.2's MPD library-stats code in worker.php, sysutil.sh,
+# sys-config.html), and the bundles carried develop's reworked "wide layout" for
+# renderer metadata while its CSS (styles.min.css) and its wrapper div
+# (header.php) were not shipped — so a tester on a non-Default screensaver
+# layout got unstyled markup. Rebasing onto the release removed all of it. If
+# you ever move this branch back onto develop, that whole class of problem comes
+# back; don't.
+#
+# Provenance:
+#   branch     take moode/<path> from this branch as-is (the common case)
+#   branch+min apply the release-build include transform after copying:
+#              include('footer.php') -> include("footer.min.php"). moOde release
+#              images ship minified includes, so a PHP page copied straight from
+#              the source tree renders with no footer and no JS on a real Pi.
+#   built      gulp output, produced by pack.sh. Never committed.
+#   vendored   payload-<release>/<path>, captured from a real Pi. Unused now, and
+#              kept in pack.sh only as an escape hatch for a file that genuinely
+#              cannot come from the branch. Needing it again is a signal the base
+#              has drifted from the release being targeted.
+#
+# The shipped copy of this file (inside the tarball) has an md5 column appended.
+#
+# NOT shipped, deliberately:
+#   www/relnotes.txt, www/CONTRIBS.html — a release's notes and attribution list.
+#     Kept at their 10.3.2 content on this branch; adding a line to a shipped
+#     release's notes is not this package's business. Attribution lives in
+#     README.md instead. (Both belong in the upstream PR, where they are
+#     correct.)
+#   *.orig — leftovers from live editing on the Pi.
+
+branch		etc/alsa/conf.d/qbzd-devices.conf
+branch		usr/local/bin/moodeutl
+branch		var/local/www/commandw/qbzevent.sh
+branch		www/audioinfo.php
+branch		www/command/renderer.php
+branch		www/daemon/watchdog.sh
+branch		www/daemon/worker.php
+branch		www/inc/audio.php
+branch		www/inc/autocfg.php
+branch		www/inc/common.php
+branch		www/inc/constants.php
+branch		www/inc/peripheral.php
+branch		www/inc/renderer.php
+branch		www/install_renderers.txt
+built		www/js/lib.min.js
+built		www/js/main.min.js
+branch+min	www/qbz-config.php
+branch+min	www/ren-config.php
+branch		www/setup_renderers.txt
+branch		www/templates/qbz-config.html
+branch		www/templates/ren-config.html
+branch		www/templates/sys-config.html
+branch		www/util/qobuz-installer.sh
+branch		www/util/renderer-onoff.php
+branch		www/util/restart-renderer.php
+branch		www/util/send-fecmd.php
+branch		www/util/sysinfo.sh
+branch		www/util/sysutil.sh

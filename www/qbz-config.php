@@ -59,7 +59,12 @@ if ($_SESSION['qobuzsvc'] == '1') {
 			(empty($status['auth']['subscription']) ? '' : ' (' . $status['auth']['subscription'] . ')');
 	} else {
 		$_qobuz_login_hide = '';
-		$_qobuz_account_status = 'Not logged in';
+		// With the pairing surface up, a login is optional: the Qobuz app hands
+		// the player its own session tokens when someone casts to it.
+		$pairingOn = isset($status['qconnect']['pairing']) && $status['qconnect']['pairing'] === true;
+		$_qobuz_account_status = $pairingOn ?
+			'Not logged in (optional: any Qobuz app on this network can cast to this player)' :
+			'Not logged in';
 		// A login in progress prints its URL to the login log
 		$loginLog = file_exists(QOBUZ_LOGIN_LOG) ? file_get_contents(QOBUZ_LOGIN_LOG) : '';
 		if (preg_match('#https?://\S+#', $loginLog, $matches) === 1) {

@@ -353,6 +353,11 @@
 				<span class="config-btn-after">Qobuz Connect settings</span>
 				$_qobuz_login_msg
 			</div>
+
+			<div class="controls">
+				<a data-toggle="modal" href="#qobuz-clear-credentials" $_qobuz_link_disable><button class="btn btn-medium btn-primary config-btn" $_qobuz_btn_disable>Clear</button></a>
+				<span class="config-btn-after">Stored account credentials</span>
+			</div>
 		</div>
 		<div class="control-group $_feat_upmpdcli">
 			<legend>UPnP Client for MPD</legend>
@@ -600,6 +605,20 @@
 		<div class="modal-footer">
 			<button class="btn" data-dismiss="modal">Cancel</button>
 			<button class="btn btn-primary btn-submit" type="submit" name="spotify_clear_credentials" value="1">Yes</button>
+		</div>
+	</div>
+
+	<div id="qobuz-clear-credentials" class="modal hide" tabindex="-1" role="dialog" aria-labelledby="qobuz-clear-credentials-label" aria-hidden="true">
+		<div class="modal-header"><button aria-label="Close" type="button" class="close" data-dismiss="modal">&times;</button>
+			<h3>Clear stored Qobuz credentials?</h3>
+		</div>
+		<div class="modal-body">
+			<span class="config-help-static">Removes the saved account login. Local pairing does not need one &mdash;
+			the Qobuz app hands this player its own session when casting.</span>
+		</div>
+		<div class="modal-footer">
+			<button class="btn" data-dismiss="modal">Cancel</button>
+			<button class="btn btn-primary btn-submit" type="submit" name="qobuz_clear_credentials" value="1">Yes</button>
 		</div>
 	</div>
 </form>

@@ -59,6 +59,16 @@ changed since installing.
   bundles wholesale and patches PHP against *this release's built files*; on another
   release it either fails or silently reverts that release's own fixes.
 - **A Qobuz subscription is required.** Hi-res needs a hi-res plan.
+- **By default Qobuz playback takes the DAC directly, and only when nothing would be
+  lost.** *Output routing* defaults to *ALSA output mode (Auto)*, which hands the DAC the
+  track's own rate — no resampling — whenever Audio Config has Output mode set to Direct
+  and no DSP is enabled. With any DSP on, or Output mode set to Plug, it stays on moOde's
+  output chain exactly as before. Going direct reserves the DAC while a Qobuz session is
+  active, so nothing else can play through it meanwhile. Set *Output routing* to
+  *Software* to keep the old behaviour unconditionally.
+- **Tracks are not cached by default.** *Track cache* defaults to stream-only, which
+  writes nothing to the SD card — a hi-res track is 60–80 MB. Gapless playback needs the
+  cache, so it is unavailable until you turn caching on; the control says so.
 - **It replaces ~26 files under `/var/www`, including `js/lib.min.js` and
   `js/main.min.js`.** If you have your own modifications to any of them, they are backed
   up but replaced.

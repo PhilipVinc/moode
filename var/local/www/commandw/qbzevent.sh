@@ -147,9 +147,14 @@ deactivate () {
 if [[ $QBZ_EVENT == "PlaybackStateChanged" ]]; then
 	if [[ $QBZ_STATE == "playing" || $QBZ_STATE == "loading" ]]; then
 		activate
-	elif [[ $QBZ_STATE == "paused" || $QBZ_STATE == "stopped" ]]; then
+	elif [[ $QBZ_STATE == "stopped" ]]; then
 		deactivate
 	fi
+	# NOTE: paused KEEPS the render (AirPlay/Spotify parity — their flags are
+	# session-scoped). The session still owns the audio device while paused,
+	# and any renderUI rebuild (page load, window resize) reads qbzactive from
+	# cfg_system — deactivating on pause made the overlay vanish on reload or
+	# resize whenever playback happened to be paused.
 fi
 
 if [[ $QBZ_EVENT == "QconnectSessionChanged" ]]; then
@@ -173,6 +178,11 @@ if [[ $QBZ_EVENT == "PlaybackError" ]]; then
 		echo $((RETRIES_LEFT - 1)) > $RETRY_FILE
 		sleep 1
 		qbzd play -q
+	else
+		# Out of retries (or MPD grabbed the device): since paused no longer
+		# deactivates, release the render here or a failed start would leave
+		# the UI locked on a silent session.
+		deactivate
 	fi
 fi
 

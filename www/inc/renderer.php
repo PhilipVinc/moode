@@ -400,20 +400,24 @@ function stopQobuz() {
 	$GLOBALS['qbzactive'] = '0';
 	sendFECmd('qbzactive0');
 }
-// Version of the installed qbzd, preferring the build id the installer recorded
-// over `qbzd --version`: the moOde test builds are cut from a fork branch and
-// carry a build suffix (2.0.2.moode7) that the binary itself cannot report,
-// since it only knows its Cargo version. Falls back to the binary for an
-// upstream install that predates the marker file.
+// Version of the installed qbzd. A moOde build stamps its build id into the
+// binary (2.0.2.moode7), so ask the binary first — it describes whatever is
+// actually on disk, even if it was replaced by hand. Older binaries report only
+// their Cargo version (a bare 2.0.2), and for those the id the installer
+// recorded at install time is the better answer.
 function qbzdVersion() {
+	$result = sysCmd('qbzd --version | awk \'{print $2}\'');
+	$reported = empty($result[0]) ? '' : $result[0];
+	if (strpos($reported, 'moode') !== false) {
+		return $reported;
+	}
 	if (file_exists(QBZD_BUILD_FILE)) {
 		$build = trim(file_get_contents(QBZD_BUILD_FILE));
 		if ($build != '') {
 			return $build;
 		}
 	}
-	$result = sysCmd('qbzd --version | awk \'{print $2}\'');
-	return empty($result[0]) ? 'unknown' : $result[0];
+	return $reported == '' ? 'unknown' : $reported;
 }
 // True when the installed qbzd is a moOde fork build rather than an upstream
 // release — the Qobuz Connect pairing work is not upstream yet.

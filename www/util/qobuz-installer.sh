@@ -16,7 +16,7 @@
 # The `.moodeN` suffix marks a moOde build of upstream 2.0.2: the binary reports
 # only its Cargo version, so the suffix is recorded in QBZD_BUILD_FILE for the
 # Renderer Config screen to display.
-QBZD_VERSION="2.0.2.moode16"
+QBZD_VERSION="2.0.2.moode17"
 QBZD_REPO="https://github.com/PhilipVinc/qbz"
 QBZD_TAG="qbzd-v$QBZD_VERSION"
 QBZD_BUILD_FILE="/var/local/www/qbzd-build"

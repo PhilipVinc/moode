@@ -126,6 +126,22 @@
 				</span>
 			</div>
 
+			<label class="control-label" for="memory-cache-mb">Memory cache</label>
+			<div class="controls">
+				<select id="memory-cache-mb" class="config-select-large" name="config[memory_cache_mb]">
+					$_select[memory_cache_mb]
+				</select>
+				<a aria-label="Help" class="config-info-toggle" data-cmd="info-memory-cache-mb" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
+				<span id="info-memory-cache-mb" class="config-help-info">
+					How much RAM the renderer may hold decoded tracks in. <b>Auto</b> works this out
+					from how much memory this player has and is almost always the right answer.
+					<br><br>Lower it only if this player is doing something else that needs the memory.
+					A hi-res track is around 120 MB, and a track larger than the cache is not cached at
+					all &mdash; so below that, gapless playback of hi-res tracks stops working, because
+					gapless needs the next track held ready.
+				</span>
+			</div>
+
 			<label class="control-label" for="gapless">Gapless playback</label>
 			<div class="controls">
 				<select id="gapless" class="config-select-large" name="config[gapless]" $_gapless_disabled>

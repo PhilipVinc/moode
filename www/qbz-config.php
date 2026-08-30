@@ -55,7 +55,8 @@ foreach ($result as $row) {
 // Self-heal a cfg_qobuz that predates a param: without the row, the generic
 // UPDATE in the save handler would silently no-op.
 $qobuzDefaults = array('pairing' => 'Yes', 'buffer_seconds' => '2', 'volume_mode' => 'auto',
-	'stream_first' => 'Yes', 'track_cache' => 'Yes', 'quality_fallback' => 'fallback');
+	'stream_first' => 'Yes', 'track_cache' => 'Yes', 'quality_fallback' => 'fallback',
+	'memory_cache_mb' => 'auto');
 foreach ($qobuzDefaults as $param => $default) {
 	if (!isset($cfgQobuz[$param])) {
 		sqlInsert('cfg_qobuz', $dbh, "'" . $param . "', '" . $default . "'");
@@ -172,6 +173,20 @@ foreach (array('2' => '2 seconds (Default)', '5' => '5 seconds', '10' => '10 sec
 // Auto is kept only so a stored value still resolves.
 $_select['volume_mode'] .= "<option value=\"auto\" " . (($cfgQobuz['volume_mode'] == 'auto') ? "selected" : "") . ">Software (Default)</option>\n";
 $_select['volume_mode'] .= "<option value=\"locked\" "   . (($cfgQobuz['volume_mode'] == 'locked')   ? "selected" : "") . ">Locked at 100%</option>\n";
+
+// In-memory track cache. "Auto" reads this box's RAM (17 %, capped at 400 MB):
+// ~157 MB on a 1 GB Pi, ~338 MB on a 2 GB one. The explicit sizes exist for a
+// Pi that is also doing something else. Below ~120 MB a Hi-Res track no longer
+// fits in the cache and Hi-Res gapless stops working, so the small values say
+// so rather than looking like free wins.
+$qobuzCacheSizes = array('auto' => 'Auto, sized from this player\'s RAM (Default)',
+	'400' => '400 MB', '300' => '300 MB', '200' => '200 MB',
+	'150' => '150 MB', '100' => '100 MB (no Hi-Res gapless)',
+	'50' => '50 MB (no Hi-Res gapless)');
+foreach ($qobuzCacheSizes as $value => $label) {
+	$_select['memory_cache_mb'] .= "<option value=\"" . $value . "\" " .
+		(($cfgQobuz['memory_cache_mb'] == $value) ? "selected" : "") . ">" . $label . "</option>\n";
+}
 
 $_select['stream_first'] .= "<option value=\"Yes\" " . (($cfgQobuz['stream_first'] == 'Yes') ? "selected" : "") . ">As soon as buffered (Default)</option>\n";
 $_select['stream_first'] .= "<option value=\"No\" "  . (($cfgQobuz['stream_first'] == 'No')  ? "selected" : "") . ">After the full track downloads</option>\n";

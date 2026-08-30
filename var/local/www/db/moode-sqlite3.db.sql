@@ -264,6 +264,7 @@ INSERT INTO cfg_qobuz (id, param, value) VALUES (3, 'normalize_volume', 'No');
 INSERT INTO cfg_qobuz (id, param, value) VALUES (4, 'pairing', 'Yes');
 INSERT INTO cfg_qobuz (id, param, value) VALUES (5, 'buffer_seconds', '2');
 INSERT INTO cfg_qobuz (id, param, value) VALUES (6, 'volume_mode', 'auto');
+INSERT INTO cfg_qobuz (id, param, value) VALUES (7, 'memory_cache_mb', 'auto');
 INSERT INTO cfg_qobuz (id, param, value) VALUES (8, 'stream_first', 'Yes');
 INSERT INTO cfg_qobuz (id, param, value) VALUES (9, 'track_cache', 'Yes');
 INSERT INTO cfg_qobuz (id, param, value) VALUES (10, 'quality_fallback', 'fallback');

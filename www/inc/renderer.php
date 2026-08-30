@@ -385,6 +385,10 @@ function startQobuz() {
 	sysCmd('qbzd settings set qconnect.device_name "' . $_SESSION['qobuzname'] . '"');
 	sysCmd('qbzd settings set qconnect.pairing ' . (($cfgQobuz['pairing'] ?? 'Yes') == 'Yes' ? 'on' : 'off'));
 	sysCmd('qbzd settings set audio.stream_buffer_seconds ' . ($cfgQobuz['buffer_seconds'] ?? '2'));
+	// In-memory track cache. "auto" lets qbzd size it from this box's RAM,
+	// which is the right answer nearly always; an explicit value is for a Pi
+	// that is doing more than being a renderer.
+	sysCmd('qbzd settings set audio.memory_cache_mb ' . ($cfgQobuz['memory_cache_mb'] ?? 'auto'));
 	// Volume. qbzd's hardware volume opens an ALSA mixer named after its output
 	// device, and a virtual device has none -- so with _audioout it can only
 	// ever fail, and the app's slider is applied in software. The DAC's own

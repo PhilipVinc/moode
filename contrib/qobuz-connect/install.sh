@@ -122,14 +122,16 @@ INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (3, 'normalize_volume'
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (4, 'pairing', 'Yes');
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (5, 'buffer_seconds', '2');
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (6, 'volume_mode', 'auto');
+INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (7, 'memory_cache_mb', 'auto');
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (8, 'stream_first', 'Yes');
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (9, 'track_cache', 'Yes');
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (10, 'quality_fallback', 'fallback');
 INSERT OR IGNORE INTO cfg_system (id, param, value) VALUES (178, 'qobuzsvc', '0');
 INSERT OR IGNORE INTO cfg_system (id, param, value) VALUES (179, 'qobuzname', 'Moode Qobuz');
--- Upgrade from an earlier preview: 'output_mode' is gone -- the renderer now
--- outputs to _audioout and follows Audio Config, so there is nothing to pick.
-DELETE FROM cfg_qobuz WHERE param = 'output_mode';
+-- Upgrade from an earlier preview: row 7 used to be 'output_mode', which is
+-- gone (the renderer now outputs to _audioout and follows Audio Config). The
+-- INSERT OR IGNORE above cannot replace it, so rename it in place.
+UPDATE cfg_qobuz SET param = 'memory_cache_mb', value = 'auto' WHERE param = 'output_mode';
 -- 'hardware' is no longer offered: a virtual output device has no ALSA mixer.
 UPDATE cfg_qobuz SET value = 'auto' WHERE param = 'volume_mode' AND value = 'hardware';
 UPDATE cfg_system SET value = '0' WHERE param = 'qbzactive';

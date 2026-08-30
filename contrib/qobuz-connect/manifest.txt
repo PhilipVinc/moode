@@ -9,22 +9,23 @@
 # maps `www/...` to /var/www/... and everything else to /... , so the layout here
 # is the on-disk layout.
 #
-# This branch is based on the 10.3.2 RELEASE (upstream/master), not on develop,
-# because 10.3.2 is what the package installs onto. That is the whole reason the
+# This branch is based on the 10.3.3 RELEASE (upstream/master), not on develop,
+# because 10.3.3 is what the package installs onto. That is the whole reason the
 # provenance list below is short: every payload file can simply come from the
 # branch, and the JS bundles are built from the same release the tester is
 # running.
 #
 # It was originally cut from develop, and that leaked develop-only work onto
-# released Pis: four files had to be vendored from a real 10.3.2 box to avoid
-# reverting fixes the release already had (the touch-display brightness fix in
-# inc/common.php, 10.3.2's MPD library-stats code in worker.php, sysutil.sh,
+# released Pis: four files had to be vendored from a real box to avoid reverting
+# fixes the release already had (the touch-display brightness fix in
+# inc/common.php, the MPD library-stats code in worker.php, sysutil.sh,
 # sys-config.html), and the bundles carried develop's reworked "wide layout" for
 # renderer metadata while its CSS (styles.min.css) and its wrapper div
 # (header.php) were not shipped — so a tester on a non-Default screensaver
 # layout got unstyled markup. Rebasing onto the release removed all of it. If
 # you ever move this branch back onto develop, that whole class of problem comes
-# back; don't.
+# back; don't. (The wide layout is IN 10.3.3, which is why the renderer overlay
+# can now use it: see #renderer-sformat / #renderer-oformat in playerlib.js.)
 #
 # Provenance:
 #   branch     take moode/<path> from this branch as-is (the common case)
@@ -42,7 +43,7 @@
 #
 # NOT shipped, deliberately:
 #   www/relnotes.txt, www/CONTRIBS.html — a release's notes and attribution list.
-#     Kept at their 10.3.2 content on this branch; adding a line to a shipped
+#     Kept at their 10.3.3 content on this branch; adding a line to a shipped
 #     release's notes is not this package's business. Attribution lives in
 #     README.md instead. (Both belong in the upstream PR, where they are
 #     correct.)

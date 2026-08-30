@@ -1,5 +1,5 @@
 #!/bin/bash
-# Qobuz Connect preview installer for moOde 10.3.2 (run with sudo on the Pi).
+# Qobuz Connect preview installer for moOde 10.3.3 (run with sudo on the Pi).
 #
 # Layout mirrors the moOde tree: www/ -> /var/www, everything else -> /. Every
 # file this replaces is backed up under $BK together with a generated restore.sh
@@ -29,10 +29,10 @@ DB=/var/local/www/db/moode-sqlite3.db
 FEAT_QOBUZ=262144
 UNINSTALL_LINK=/home/moode/qobuz-connect-uninstall
 
-# The graft replaces both JS bundles wholesale and patches PHP against 10.3.2's
+# The graft replaces both JS bundles wholesale and patches PHP against 10.3.3's
 # BUILT files. On any other release those patches either fail or silently revert
 # that release's own fixes, so refuse by default.
-WANT_VERSION="10.3.2-1moode1"
+WANT_VERSION="10.3.3-1moode1"
 WANT_ARCH="aarch64"
 FORCE=0
 [ "${1:-}" = "--force" ] && FORCE=1
@@ -156,7 +156,7 @@ DB="$DB"
 WAS_VERSION="\$(cat "\$BK/moode-version")"
 HAVE_VERSION=\$(dpkg-query -W -f='\${Version}' moode-player 2>/dev/null || echo "unknown")
 
-# Refuse across a moOde update. These are 10.3.2 files and a 10.3.2 database;
+# Refuse across a moOde update. These are 10.3.3 files and a 10.3.3 database;
 # replaying them over a newer release would overwrite that release's own www
 # tree and settings with older ones. A moOde update has already removed the
 # grafted GUI on its own, so there is nothing here worth forcing.

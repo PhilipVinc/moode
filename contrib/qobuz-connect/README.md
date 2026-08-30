@@ -54,7 +54,7 @@ changed since installing.
 
 ## Caveats
 
-- **moOde 10.3.2 (`10.3.2-1moode1`), aarch64 only.** The installer checks and refuses
+- **moOde 10.3.3 (`10.3.3-1moode1`), aarch64 only.** The installer checks and refuses
   otherwise (`--force` overrides, at your own risk). It replaces both minified JS
   bundles wholesale and patches PHP against *this release's built files*; on another
   release it either fails or silently reverts that release's own fixes.
@@ -113,8 +113,8 @@ The package is built by `contrib/qobuz-connect/pack.sh`, which reads
 `contrib/qobuz-connect/manifest.txt` — that file records every shipped path, where it
 comes from, and what is deliberately left out.
 
-The branch is based on the **10.3.2 release** (`upstream/master`), not on `develop`. That
-is deliberate and load-bearing: the package installs onto 10.3.2, so building it from the
+The branch is based on the **10.3.3 release** (`upstream/master`), not on `develop`. That
+is deliberate and load-bearing: the package installs onto 10.3.3, so building it from the
 same code means every payload file can come straight from the branch and the JS bundles
 match the release they land on. The product changes also live on
 `feature/qobuz-connect-pairing`, which IS based on `develop` — that is the PR branch, and

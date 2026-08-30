@@ -16,7 +16,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 MANIFEST="$HERE/manifest.txt"
-VENDOR="$HERE/payload-10.3.2"
+VENDOR="$HERE/payload-10.3.3"
 TAG="${1:-$(git -C "$REPO" rev-parse --short HEAD)}"
 NAME="moode-qobuz-connect"
 OUT="$REPO/dist"
@@ -75,7 +75,7 @@ while IFS=$'\t' read -r prov path; do
 		vendored)
 			cp -a "$VENDOR/$path" "$dest"
 			# Warn when the branch has moved under a file we froze — that is the
-			# signal to redo the graft (see payload-10.3.2/CAPTURED.md).
+			# signal to redo the graft (see payload-10.3.3/CAPTURED.md).
 			was=$(awk -v p="$path" '$2 == p {print $1}' "$VENDOR/CAPTURED.md" | tail -1)
 			now=$($MD5 "$REPO/$path" | awk '{print $1}')
 			if [ -n "$was" ] && [ "$was" != "$now" ]; then

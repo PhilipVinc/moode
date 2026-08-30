@@ -210,38 +210,88 @@ if [[ $QBZ_EVENT == "PlaybackError" ]]; then
 	fi
 fi
 
+# Build the metadata frame and send it to the front-end.
+#
+# Two values describe the audio, and they come from different places on
+# purpose (moOde 10.3.3 renderer contract):
+#   - sformat, the SOURCE format, is supplied by the renderer daemon. Only
+#     qbzd knows what it is streaming from Qobuz.
+#   - oformat, the OUTPUT format, is moOde's to determine: get-oformat.php
+#     reads the card's hw_params. Asking qbzd for it would report what the
+#     daemon believes it opened, not what the hardware actually runs at, and
+#     it would miss everything moOde's own chain does downstream.
+#
+# $1 = playstate ("Resume" or "Pause")
+send_metadata () {
+	local PLAYSTATE=$1
+	local OFORMAT
+	OFORMAT=$(/var/www/util/get-oformat.php)
+	METADATA_JSON=$(jq -n -c \
+		--arg a "update_qbzmeta" \
+		--arg b "$TITLE" \
+		--arg c "$ARTIST" \
+		--arg d "$ALBUM" \
+		--arg e "$DURATION" \
+		--arg f "$COVER_URL" \
+		--arg g "$SFORMAT" \
+		--arg h "$OFORMAT" \
+		--arg i "$PLAYSTATE" \
+		'{fecmd: $a, title: $b, artist: $c, album: $d, duration: $e, cover_url: $f, sformat: $g, oformat: $h, playstate: $i}')
+	echo -e "$METADATA_JSON" > $QBZMETA_CACHE_FILE
+	debug_log "Meta:    playstate=$PLAYSTATE sformat=$SFORMAT oformat=$OFORMAT"
+	/var/www/util/send-fecmd.php "$METADATA_JSON"
+}
+
+# Repopulate the metadata fields from the cache written by the last
+# TrackStarted, so a playstate change can re-send the frame without the track
+# details the event itself does not carry. Fails (returns 1) when there is no
+# usable cache yet.
+load_cached_metadata () {
+	if [[ ! -s $QBZMETA_CACHE_FILE ]]; then
+		return 1
+	fi
+	local KEY VALUE
+	while IFS== read -r KEY VALUE; do
+		case "$KEY" in
+			title) TITLE=$VALUE ;;
+			artist) ARTIST=$VALUE ;;
+			album) ALBUM=$VALUE ;;
+			duration) DURATION=$VALUE ;;
+			cover_url) COVER_URL=$VALUE ;;
+			sformat) SFORMAT=$VALUE ;;
+		esac
+	done < <(jq -r 'to_entries[] | "\(.key)=\(.value)"' $QBZMETA_CACHE_FILE 2> /dev/null)
+	# An empty cover means the cache was written before a track was resolved;
+	# re-sending it would blank the overlay (spotevent.sh guards the same way).
+	[[ -n $COVER_URL ]]
+}
+
 # Update metadata and send to front-end
 if [[ $QBZ_EVENT == "TrackStarted" ]]; then
 	activate
 	# Playback started: replenish the failed-start retry budget
 	echo $RETRY_BUDGET > $RETRY_FILE
+	TITLE=$QBZ_TITLE
+	ARTIST=$QBZ_ARTIST
+	ALBUM=$QBZ_ALBUM
+	DURATION=$QBZ_DURATION
+	COVER_URL=$QBZ_COVER_URL
 	SFORMAT="FLAC $QBZ_BIT_DEPTH/$QBZ_SAMPLE_RATE kHz"
-	# Output format from the control API. /api/status, NOT /api/now-playing: the
-	# latter is login-gated and the pairing flow never logs in (the casting app
-	# hands over its own session), so it answers needs_auth and this fell back to
-	# claiming the OUTPUT was FLAC. /api/status also carries the rate the DEVICE
-	# runs at (qbzd 2.0.2.moode25+), which is the number that differs from the
-	# source whenever something in the chain resamples.
-	AUDIO_JSON=$(curl -s --max-time 2 $QBZD_API/api/status | jq -c '.audio // {}' 2>/dev/null)
-	OFORMAT=$(jq -rn --argjson a "${AUDIO_JSON:-{\}}" '
-		(if $a.output_sample_rate != null then $a.output_sample_rate else $a.sample_rate end) as $r
-		| if $a.bit_depth != null and $r != null then "PCM \($a.bit_depth)/\($r / 1000) kHz" else empty end
-	' 2>/dev/null)
-	if [[ -z $OFORMAT ]]; then
-		# Never fall back to SFORMAT: the decoder always emits PCM, so echoing the
-		# source container here is the one answer that is certainly wrong.
-		OFORMAT="PCM $QBZ_BIT_DEPTH/$QBZ_SAMPLE_RATE kHz"
+	send_metadata "Resume"
+fi
+
+# Playstate: drives the now-playing icon and the "Not playing" output format
+# on the renderer overlay. The track details come from the cache — the state
+# change itself carries none.
+if [[ $QBZ_EVENT == "PlaybackStateChanged" ]]; then
+	if [[ $QBZ_STATE == "playing" ]]; then
+		PLAYSTATE="Resume"
+	elif [[ $QBZ_STATE == "paused" ]]; then
+		PLAYSTATE="Pause"
+	else
+		PLAYSTATE=""
 	fi
-	METADATA_JSON=$(jq -n -c \
-		--arg a "update_qbzmeta" \
-		--arg b "$QBZ_TITLE" \
-		--arg c "$QBZ_ARTIST" \
-		--arg d "$QBZ_ALBUM" \
-		--arg e "$QBZ_DURATION" \
-		--arg f "$QBZ_COVER_URL" \
-		--arg g "$SFORMAT" \
-		--arg h "$OFORMAT" \
-		'{fecmd: $a, title: $b, artist: $c, album: $d, duration: $e, cover_url: $f, sformat: $g, oformat: $h}')
-	echo -e "$METADATA_JSON" > $QBZMETA_CACHE_FILE
-	/var/www/util/send-fecmd.php "$METADATA_JSON"
+	if [[ -n $PLAYSTATE ]] && load_cached_metadata; then
+		send_metadata "$PLAYSTATE"
+	fi
 fi

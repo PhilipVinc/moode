@@ -45,29 +45,24 @@
 
 			<div class="config-horiz-rule">Output</div>
 
-			<label class="control-label" for="output-mode">Output routing</label>
+			<label class="control-label">Output</label>
 			<div class="controls">
-				<select id="output-mode" class="config-select-large" name="config[output_mode]">
-					$_select[output_mode]
-				</select>
-				<a aria-label="Help" class="config-info-toggle" data-cmd="info-output-mode" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
-				<span id="info-output-mode" class="config-help-info">
-					Where Qobuz playback sends audio:
-					<br>&bull; <b>ALSA output mode (Auto)</b> &mdash; picks Direct whenever Audio Config
-					has Output mode set to Direct and no DSP is enabled, in other words whenever moOde's
-					own output chain has nothing in it to lose. Falls back to Software otherwise.
-					<br>&bull; <b>Software</b> &mdash; goes through the same output chain as MPD, so your
-					EQ, crossfeed and CamillaDSP settings apply. The stream is converted to whatever rate
-					that chain is running at, which is usually not the rate of the track.
-					<br>&bull; <b>Direct</b> &mdash; hands the DAC the track's own rate untouched, for
-					bit-perfect playback. moOde's DSP is bypassed and the DAC is reserved for as long as
-					a Qobuz session is active, so nothing else can play through it.
+				<span class="config-help-static">$_qobuz_output_chain</span>
+				<a aria-label="Help" class="config-info-toggle" data-cmd="info-output-chain" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
+				<span id="info-output-chain" class="config-help-info">
+					Qobuz playback goes through the same output chain as MPD, so whatever is set in
+					Audio Config &mdash; Output mode, CamillaDSP, the equalizers, crossfeed, multiroom
+					&mdash; applies to it too. There is nothing to set here.
+					<br><br>For bit-perfect playback set Audio Config &gt; ALSA options &gt; Output mode
+					to <b>Direct</b> and leave the DSP stages off. Tracks then reach the DAC at their
+					own rate. With anything inserted in the chain the stream is converted to the rate
+					that chain runs at, which is the point of inserting it.
 				</span>
 			</div>
 
 			<label class="control-label">Resolves to</label>
 			<div class="controls">
-				<span class="config-help-static">$_qobuz_routing_resolves</span>
+				<span class="config-help-static">$_qobuz_output_detail</span>
 			</div>
 
 			<label class="control-label" for="volume-mode">Volume control</label>
@@ -78,16 +73,11 @@
 				<a aria-label="Help" class="config-info-toggle" data-cmd="info-volume-mode" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
 				<span id="info-volume-mode" class="config-help-info">
 					How the Qobuz app's volume slider is applied:
-					<br>&bull; <b>Auto</b> &mdash; uses the DAC's own volume control when that is possible,
-					otherwise software.
-					<br>&bull; <b>DAC hardware volume</b> &mdash; sends the slider to the DAC's volume
-					control, so the audio stays bit-perfect. Needs Direct routing and a DAC that has a
-					hardware volume control. This is the same control moOde's volume uses, so a change
-					made from the Qobuz app persists and affects moOde playback afterwards.
-					<br>&bull; <b>Software</b> &mdash; scales the samples instead. Works with any output,
-					but the audio is no longer bit-perfect.
+					<br>&bull; <b>Software</b> &mdash; scales the samples. Works with any output, but the
+					audio is no longer bit-perfect.
 					<br>&bull; <b>Locked at 100%</b> &mdash; keeps the stream at full scale and ignores
-					the app's slider, so volume must come from your amplifier or DAC.
+					the app's slider, so volume must come from moOde, your amplifier or your DAC. This is
+					the setting to use for bit-perfect playback.
 				</span>
 			</div>
 

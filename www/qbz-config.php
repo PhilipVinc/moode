@@ -55,8 +55,7 @@ foreach ($result as $row) {
 // Self-heal a cfg_qobuz that predates a param: without the row, the generic
 // UPDATE in the save handler would silently no-op.
 $qobuzDefaults = array('pairing' => 'Yes', 'buffer_seconds' => '2', 'volume_mode' => 'auto',
-	'output_mode' => 'auto', 'stream_first' => 'Yes', 'track_cache' => 'Yes',
-	'quality_fallback' => 'fallback');
+	'stream_first' => 'Yes', 'track_cache' => 'Yes', 'quality_fallback' => 'fallback');
 foreach ($qobuzDefaults as $param => $default) {
 	if (!isset($cfgQobuz[$param])) {
 		sqlInsert('cfg_qobuz', $dbh, "'" . $param . "', '" . $default . "'");
@@ -74,21 +73,59 @@ if ($_SESSION['qobuzsvc'] == '1') {
 	}
 }
 
-// What Output routing actually resolves to on this box. Shown because "Auto"
-// is otherwise unanswerable without reading ALSA configs by hand, and the
-// reason is the useful half when it does not resolve to Direct.
-$routing = qobuzDirectRouting();
-$_qobuz_routing_resolves = $routing['direct'] ?
-	'Direct (' . $routing['device'] . ')' :
-	'Software' . ($routing['reason'] == '' ? '' : ' &mdash; ' . $routing['reason']);
+// Where Qobuz audio goes. There is nothing to configure here any more -- the
+// renderer outputs to moOde's own _audioout (or btstream) and therefore follows
+// Audio Config like MPD does -- but "it follows Audio Config" is not much use
+// without saying what Audio Config currently amounts to, so spell it out.
 
-// Hardware volume needs both a direct handoff and a DAC that has a volume
-// control; say which one is missing rather than hiding the option.
-$hwVolumeReason = '';
-if (!$routing['direct']) {
-	$hwVolumeReason = 'n/a &mdash; using Software routing';
-} else if (qobuzSess('alsavolume', 'none') == 'none') {
-	$hwVolumeReason = 'n/a &mdash; this DAC has no hardware volume control';
+// $_SESSION lookup with a default. Not every DSP flag exists as a cfg_system row
+// on every release, and an undefined -- or empty -- key compared against 'Off'
+// reads as ON, which would report a stage that is not even installed. Defaults
+// are therefore all "feature absent".
+$qobuzSess = function($key, $default) {
+	return isset($_SESSION[$key]) && $_SESSION[$key] !== '' ? $_SESSION[$key] : $default;
+};
+$audioOut = $qobuzSess('audioout', 'Local');
+$_qobuz_output_chain = 'moOde audio chain (' . ($audioOut == 'Local' ? '_audioout' : 'btstream') . ')';
+
+$qobuzChainStages = array();
+if ($audioOut != 'Local') {
+	$qobuzChainStages[] = 'Bluetooth output';
+} else if ($qobuzSess('multiroom_tx', 'Off') == 'On') {
+	$qobuzChainStages[] = 'Multiroom sender';
+}
+if ($qobuzSess('camilladsp', 'off') != 'off') {
+	$qobuzChainStages[] = 'CamillaDSP';
+}
+if ($qobuzSess('alsaequal', 'Off') != 'Off') {
+	$qobuzChainStages[] = 'Graphic EQ';
+}
+if ($qobuzSess('eqfa12p', 'Off') != 'Off') {
+	$qobuzChainStages[] = 'Parametric EQ';
+}
+if ($qobuzSess('crossfeed', 'Off') != 'Off') {
+	$qobuzChainStages[] = 'Crossfeed';
+}
+if ($qobuzSess('invert_polarity', '0') != '0') {
+	$qobuzChainStages[] = 'Polarity inversion';
+}
+if ($qobuzSess('peppy_display', '0') == '1' || $qobuzSess('enable_peppyalsa', '0') == '1') {
+	$qobuzChainStages[] = 'PeppyALSA';
+}
+
+// An unknown output mode must NOT read as Direct.
+$alsaOutputMode = $qobuzSess('alsa_output_mode', 'plughw');
+$alsaOutputModeName = isset(ALSA_OUTPUT_MODE_NAME[$alsaOutputMode]) ?
+	ALSA_OUTPUT_MODE_NAME[$alsaOutputMode] : $alsaOutputMode;
+if (!empty($qobuzChainStages)) {
+	$_qobuz_output_detail = 'Through ' . implode(', ', $qobuzChainStages) .
+		', so tracks are converted to that chain\'s rate';
+} else if ($alsaOutputMode == 'hw') {
+	$_qobuz_output_detail = 'Nothing in the chain and Output mode is Direct, so tracks reach ' .
+		'the DAC at their own rate';
+} else {
+	$_qobuz_output_detail = 'Nothing in the chain, but Audio Config &gt; ALSA options &gt; ' .
+		'Output mode is ' . $alsaOutputModeName . '; set it to Direct for bit-perfect playback';
 }
 
 // Local pairing supplies the account (the casting app hands over its own
@@ -129,15 +166,11 @@ foreach (array('2' => '2 seconds (Default)', '5' => '5 seconds', '10' => '10 sec
 	$_select['buffer_seconds'] .= "<option value=\"" . $secs . "\" " .
 		(($cfgQobuz['buffer_seconds'] == $secs) ? "selected" : "") . ">" . $label . "</option>\n";
 }
-$_select['output_mode'] .= "<option value=\"auto\" "     . (($cfgQobuz['output_mode'] == 'auto')     ? "selected" : "") . ">ALSA output mode (Auto) (Default)</option>\n";
-$_select['output_mode'] .= "<option value=\"software\" " . (($cfgQobuz['output_mode'] == 'software') ? "selected" : "") . ">Software</option>\n";
-$_select['output_mode'] .= "<option value=\"direct\" "   . (($cfgQobuz['output_mode'] == 'direct')   ? "selected" : "") . ">Direct</option>\n";
 
-$_select['volume_mode'] .= "<option value=\"auto\" " . (($cfgQobuz['volume_mode'] == 'auto') ? "selected" : "") . ">Auto (Default)</option>\n";
-$_select['volume_mode'] .= "<option value=\"hardware\" " . (($cfgQobuz['volume_mode'] == 'hardware') ? "selected" : "") .
-	($hwVolumeReason == '' ? "" : " disabled") . ">DAC hardware volume" .
-	($hwVolumeReason == '' ? "" : " (" . $hwVolumeReason . ")") . "</option>\n";
-$_select['volume_mode'] .= "<option value=\"software\" " . (($cfgQobuz['volume_mode'] == 'software') ? "selected" : "") . ">Software</option>\n";
+// "DAC hardware volume" is gone: qbzd names its ALSA mixer after its output
+// device, and _audioout has none. Auto and Software are the same thing now, and
+// Auto is kept only so a stored value still resolves.
+$_select['volume_mode'] .= "<option value=\"auto\" " . (($cfgQobuz['volume_mode'] == 'auto') ? "selected" : "") . ">Software (Default)</option>\n";
 $_select['volume_mode'] .= "<option value=\"locked\" "   . (($cfgQobuz['volume_mode'] == 'locked')   ? "selected" : "") . ">Locked at 100%</option>\n";
 
 $_select['stream_first'] .= "<option value=\"Yes\" " . (($cfgQobuz['stream_first'] == 'Yes') ? "selected" : "") . ">As soon as buffered (Default)</option>\n";

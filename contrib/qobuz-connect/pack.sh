@@ -116,11 +116,12 @@ install -m 644 "$HERE/README.md" "$STAGE/README.md"
 #
 # macOS hygiene, and NOT optional. Files copied on a Mac carry xattrs
 # (com.apple.provenance at minimum), and bsdtar stores each one as a separate
-# AppleDouble `._name` member. Those extract onto the Pi as real files — and
-# ALSA parses EVERY file in /etc/alsa/conf.d, so a binary `._qbzd-devices.conf`
-# makes it discard its entire configuration: no output devices at all, on a
-# music player. (Found exactly that way on a real install.) Strip the xattrs,
-# tell bsdtar not to synthesise the members, then verify none slipped through.
+# AppleDouble `._name` member, which extracts onto the Pi as a real file. This
+# bit us once through /etc/alsa/conf.d, which ALSA parses in full: one binary
+# `._` member there made it discard its entire configuration, leaving a music
+# player with no output devices at all. The package no longer ships an ALSA
+# config, but the hygiene stays. Strip the xattrs, tell bsdtar not to synthesise
+# the members, then verify none slipped through.
 [ "$(uname -s)" = "Darwin" ] && xattr -cr "$STAGE" 2>/dev/null || true
 find "$STAGE" \( -name '._*' -o -name '.DS_Store' \) -print -delete
 

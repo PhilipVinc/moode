@@ -49,7 +49,6 @@
 #     correct.)
 #   *.orig — leftovers from live editing on the Pi.
 
-branch		etc/alsa/conf.d/qbzd-devices.conf
 branch		usr/local/bin/moodeutl
 branch		var/local/www/commandw/qbzevent.sh
 branch		www/audioinfo.php

@@ -329,89 +329,6 @@ function updateDeezCredentials($email, $password) {
 	fclose($fh);
 }
 
-// Hz as a compact kHz string: 96000 -> "96", 44100 -> "44.1". formatRate() in
-// music-library.php is a lookup table that returns NULL for a rate it does not
-// list, and pulling that include in for one number is not worth it.
-function qobuzKhz($hz) {
-	return rtrim(rtrim(number_format($hz / 1000, 1, '.', ''), '0'), '.');
-}
-
-// $_SESSION lookup with a default. Several of the DSP flags below do not exist
-// as cfg_system rows on every moOde release (10.3.2 has no crossfeed, eqfa12p,
-// invert_polarity or enable_peppyalsa), and an undefined key compared against
-// 'Off' reads as ON — which would block a direct handoff for a feature that is
-// not even installed. Defaults are therefore all "feature absent", except the
-// ALSA output mode, where an unknown value must NOT be taken for Direct.
-function qobuzSess($key, $default) {
-	return isset($_SESSION[$key]) && $_SESSION[$key] !== '' ? $_SESSION[$key] : $default;
-}
-
-// Whether Qobuz playback should be handed straight to the DAC, and why not when
-// it should not. Shared by startQobuz(), which applies it, and qbz-config.php /
-// audioinfo.php, which display it — a second copy of this predicate would drift
-// and make the UI describe something the daemon is not doing.
-//
-// The rule behind "auto": moOde's _audioout is a bare hardware passthrough only
-// when nothing is inserted into it (see updAudioOutAndBtOutConfs() in audio.php).
-// In exactly that case qbzd can open the DAC itself and lose nothing, which is
-// what lets a track's own rate reach the hardware instead of whatever rate the
-// shared chain happens to be running at.
-function qobuzDirectRouting() {
-	$cfgQobuz = array();
-	foreach (sqlRead('cfg_qobuz', sqlConnect()) as $row) {
-		$cfgQobuz[$row['param']] = $row['value'];
-	}
-	$mode = isset($cfgQobuz['output_mode']) ? $cfgQobuz['output_mode'] : 'auto';
-	$device = 'hw:' . qobuzSess('cardnum', '0') . ',0';
-	$alsaMode = qobuzSess('alsa_output_mode', 'plughw');
-
-	if ($mode == 'software') {
-		return array('direct' => false, 'device' => '', 'reason' => 'Output routing is set to Software');
-	}
-
-	// Hard blockers: there is no hw: device to hand over, whatever was asked for.
-	$hard = '';
-	if (qobuzSess('audioout', 'Local') != 'Local') {
-		$hard = 'audio output is Bluetooth';
-	} else if (qobuzSess('multiroom_tx', 'Off') == 'On') {
-		$hard = 'Multiroom sender is on';
-	} else if ($alsaMode == 'iec958') {
-		$hard = 'ALSA output mode is S/PDIF';
-	}
-	if ($hard != '') {
-		return array('direct' => false, 'device' => '', 'reason' => $hard);
-	}
-
-	if ($mode == 'direct') {
-		return array('direct' => true, 'device' => $device, 'reason' => '');
-	}
-
-	// Auto: take the DAC only when moOde's own chain is empty. Each of these
-	// means the chain has something in it that a direct handoff would bypass.
-	$soft = '';
-	if ($alsaMode != 'hw') {
-		$modeName = isset(ALSA_OUTPUT_MODE_NAME[$alsaMode]) ? ALSA_OUTPUT_MODE_NAME[$alsaMode] : $alsaMode;
-		$soft = 'ALSA output mode is ' . $modeName . ', not Direct';
-	} else if (qobuzSess('alsaequal', 'Off') != 'Off') {
-		$soft = 'Graphic EQ is on';
-	} else if (qobuzSess('camilladsp', 'off') != 'off') {
-		$soft = 'CamillaDSP is on';
-	} else if (qobuzSess('crossfeed', 'Off') != 'Off') {
-		$soft = 'Crossfeed is on';
-	} else if (qobuzSess('eqfa12p', 'Off') != 'Off') {
-		$soft = 'Parametric EQ is on';
-	} else if (qobuzSess('invert_polarity', '0') != '0') {
-		$soft = 'Polarity inversion is on';
-	} else if (qobuzSess('peppy_display', '0') == '1' || qobuzSess('enable_peppyalsa', '0') == '1') {
-		$soft = 'PeppyALSA is on';
-	}
-	if ($soft != '') {
-		return array('direct' => false, 'device' => '', 'reason' => $soft);
-	}
-
-	return array('direct' => true, 'device' => $device, 'reason' => '');
-}
-
 // Qobuz Connect
 function startQobuz() {
 	$result = sqlRead('cfg_qobuz', sqlConnect());
@@ -420,8 +337,21 @@ function startQobuz() {
 		$cfgQobuz[$row['param']] = $row['value'];
 	}
 
-	// Output device: ALSA hint names defined in /etc/alsa/conf.d/qbzd-devices.conf
-	$device = $_SESSION['audioout'] == 'Local' ? 'Moode Audio Output' : 'Moode Bluetooth Stream';
+	// Output device. moOde requires 3rd-party renderers to output to its own
+	// virtual ALSA devices rather than to a card: "_audioout" for the locally
+	// attached device, "btstream" when Bluetooth output is sending to a remote
+	// speaker. _audioout is where moOde routes whatever Audio Config has
+	// inserted -- ALSA hw, ALSA plughw, camilladsp, peppy, alsaequal, eqfa12p,
+	// crossfeed, invpolarity, trx_send -- so a renderer that opens it follows
+	// the box's own audio settings instead of carrying a second, parallel set.
+	//
+	// This replaces the earlier hw:N,0 handoff. That did reach the DAC at the
+	// track's rate, but only by stepping outside moOde's chain entirely, which
+	// meant a user's DSP silently did not apply to Qobuz and the Audio Config
+	// output mode described something that was not in the signal path.
+	// Bit-perfect is not lost: with Output mode "Direct" and no DSP, _audioout
+	// is a bare `type copy` to hw:0,0 and passes our rate straight through.
+	$device = $_SESSION['audioout'] == 'Local' ? '_audioout' : 'btstream';
 
 	// Logging
 	$logging = $_SESSION['debuglog'] == '1' ? ' > ' . QBZD_LOG : ' > /dev/null';
@@ -430,21 +360,16 @@ function startQobuz() {
 	// device name, and the qconnect startup mode are read once at boot. The
 	// settings CLI writes the stores directly (creating them if needed); its
 	// running-daemon nudge is a harmless no-op while qbzd is down.
-	// Output routing. These three settings are coupled: the bit-perfect path is
-	// only reached with backend=alsa AND a device id is_hw_device() accepts, so
-	// they are always written together and never exposed separately.
-	$routing = qobuzDirectRouting();
-	if ($routing['direct']) {
-		sysCmd('qbzd settings set audio.backend alsa');
-		sysCmd('qbzd settings set audio.device "' . $routing['device'] . '"');
-		sysCmd('qbzd settings set audio.alsa_plugin hw');
-	} else {
-		// Explicit, not just "leave it": a box that once went direct must come
-		// back to the shared chain when DSP is switched on, or the DSP silently
-		// stops applying to Qobuz.
-		sysCmd('qbzd settings set audio.backend system');
-		sysCmd('qbzd settings set audio.device "' . $device . '"');
-	}
+
+	// Output routing. These three are coupled and always written together: the
+	// ALSA backend opens the named device itself, at the track's own rate, and
+	// lets _audioout's slave decide what happens next. Anything else (the
+	// "system" backend, or alsa_plugin "pcm") hands the stream to CPAL, which
+	// picks its own rate and resamples every Hi-Res track before moOde's chain
+	// ever sees it.
+	sysCmd('qbzd settings set audio.backend alsa');
+	sysCmd('qbzd settings set audio.device "' . $device . '"');
+	sysCmd('qbzd settings set audio.alsa_plugin hw');
 	sysCmd('qbzd settings set playback.quality ' . $cfgQobuz['quality']);
 	// Gapless needs the NEXT track in the cache — the prefetch is a no-op in
 	// streaming-only mode — so it cannot work on a box that does not cache,
@@ -460,20 +385,15 @@ function startQobuz() {
 	sysCmd('qbzd settings set qconnect.device_name "' . $_SESSION['qobuzname'] . '"');
 	sysCmd('qbzd settings set qconnect.pairing ' . (($cfgQobuz['pairing'] ?? 'Yes') == 'Yes' ? 'on' : 'off'));
 	sysCmd('qbzd settings set audio.stream_buffer_seconds ' . ($cfgQobuz['buffer_seconds'] ?? '2'));
-	// Volume. Hardware volume needs a direct handoff AND a DAC with a mixer
-	// control; anywhere else audio.alsa_hardware_volume silently does nothing,
-	// so resolve it here rather than trusting the stored value. 'auto' takes
-	// hardware whenever it is available, because software volume in direct mode
-	// scales every sample and throws away the bit-perfection just gained.
-	$hwVolume = $routing['direct'] && qobuzSess('alsavolume', 'none') != 'none';
+	// Volume. qbzd's hardware volume opens an ALSA mixer named after its output
+	// device, and a virtual device has none -- so with _audioout it can only
+	// ever fail, and the app's slider is applied in software. The DAC's own
+	// control is still there and still moOde's: qbzevent.sh sets it to 0dB when
+	// a session takes the render, and "Locked at 100%" leaves the stream at full
+	// scale for anyone who wants the volume to come from the amp instead.
 	$volumeMode = isset($cfgQobuz['volume_mode']) ? $cfgQobuz['volume_mode'] : 'auto';
-	if ($volumeMode == 'auto') {
-		$volumeMode = $hwVolume ? 'hardware' : 'software';
-	} else if ($volumeMode == 'hardware' && !$hwVolume) {
-		$volumeMode = 'software';
-	}
 	sysCmd('qbzd settings set qconnect.volume_mode ' . ($volumeMode == 'locked' ? 'locked' : 'software'));
-	sysCmd('qbzd settings set audio.alsa_hardware_volume ' . ($volumeMode == 'hardware' ? 'true' : 'false'));
+	sysCmd('qbzd settings set audio.alsa_hardware_volume false');
 	// Non-interactive quality fallback: the stock value is "ask", which cannot
 	// work on a headless box — there is nobody to answer, so a track the DAC
 	// cannot do at full rate has no defined outcome. Play it at a supported

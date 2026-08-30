@@ -226,18 +226,9 @@ if ($_SESSION['invert_polarity'] == '1') {
 
 $outputModeName = ALSA_OUTPUT_MODE_NAME[$_SESSION['alsa_output_mode']];
 
-// Qobuz Connect routed straight to the DAC does not pass through moOde's chain
-// at all, so the DSP stages and output mode above describe something that is
-// not in the signal path. Replace them with what qbzd actually opened.
-if ($qbzActive == '1') {
-	$qbzRouting = qobuzDirectRouting();
-	if ($qbzRouting['direct']) {
-		$dsp = '';
-		$peppyAlsa = '';
-		$outputMode = 'hw';
-		$outputModeName = ALSA_OUTPUT_MODE_NAME['hw'];
-	}
-}
+// NOTE: Qobuz Connect needs no special-casing here. It outputs to _audioout
+// like MPD does, so the DSP stages and output mode described above are its
+// signal path too.
 
 // Peppy ALSA
 $peppyAlsa = ($_SESSION['peppy_display'] == '1' || $_SESSION['enable_peppyalsa'] == '1') ? 'PeppyALSA &rarr; ' : '';

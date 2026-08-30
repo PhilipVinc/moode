@@ -14,7 +14,7 @@ STAGING="$(cd "$(dirname "$0")" && pwd)"
 # Refuse before touching anything if the payload is not sitting next to us —
 # otherwise running the script from the wrong place (a copy in /tmp, say) gets as
 # far as creating an empty backup directory before failing on an empty file list.
-for required in www/qbz-config.php etc/alsa/conf.d/qbzd-devices.conf manifest.txt; do
+for required in www/qbz-config.php var/local/www/commandw/qbzevent.sh manifest.txt; do
 	if [ ! -e "$STAGING/$required" ]; then
 		echo "!! $STAGING does not look like an unpacked Qobuz Connect package"
 		echo "!! (missing $required). Run install.sh from inside the extracted"
@@ -60,12 +60,11 @@ map_target () {
 	esac
 }
 
-# Never install macOS metadata or editor leftovers. pack.sh already refuses to
-# build an archive containing them, but this is the layer that would actually do
-# the damage: ALSA parses every file in /etc/alsa/conf.d, and one binary
-# `._qbzd-devices.conf` makes it throw away its whole configuration, leaving the
-# player with no output devices at all.
-FILES=$(cd "$STAGING" && find www usr var etc -type f \
+# Never install macOS metadata or editor leftovers: a stray `._foo` next to a
+# real file is at best confusing and at worst parsed as config. pack.sh already
+# refuses to build an archive containing them; this is the layer that would
+# actually put them on the player.
+FILES=$(cd "$STAGING" && find www usr var -type f \
 	! -name '._*' ! -name '.DS_Store' ! -name '*.orig' | sort)
 
 # 1. Backups (files + DB + current qbzd binary + the built header)
@@ -123,12 +122,16 @@ INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (3, 'normalize_volume'
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (4, 'pairing', 'Yes');
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (5, 'buffer_seconds', '2');
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (6, 'volume_mode', 'auto');
-INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (7, 'output_mode', 'auto');
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (8, 'stream_first', 'Yes');
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (9, 'track_cache', 'Yes');
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (10, 'quality_fallback', 'fallback');
 INSERT OR IGNORE INTO cfg_system (id, param, value) VALUES (178, 'qobuzsvc', '0');
 INSERT OR IGNORE INTO cfg_system (id, param, value) VALUES (179, 'qobuzname', 'Moode Qobuz');
+-- Upgrade from an earlier preview: 'output_mode' is gone -- the renderer now
+-- outputs to _audioout and follows Audio Config, so there is nothing to pick.
+DELETE FROM cfg_qobuz WHERE param = 'output_mode';
+-- 'hardware' is no longer offered: a virtual output device has no ALSA mixer.
+UPDATE cfg_qobuz SET value = 'auto' WHERE param = 'volume_mode' AND value = 'hardware';
 UPDATE cfg_system SET value = '0' WHERE param = 'qbzactive';
 UPDATE cfg_system SET value = (CAST(value AS INTEGER) | $FEAT_QOBUZ) WHERE param = 'feat_bitmask';
 SQL
@@ -169,7 +172,6 @@ if [ "\$HAVE_VERSION" != "\$WAS_VERSION" ]; then
 !! The moOde update already replaced /var/www, so the Qobuz GUI is gone. To
 !! finish cleaning up by hand:
 !!   sudo rm -f /usr/local/bin/qbzd /var/local/www/qbzd-build
-!!   sudo rm -f /etc/alsa/conf.d/qbzd-devices.conf
 !!   sudo rm -rf /home/moode/.config/qbzd
 !!   sudo sqlite3 \$DB "DROP TABLE IF EXISTS cfg_qobuz; \\
 !!     DELETE FROM cfg_system WHERE id IN (178, 179);"

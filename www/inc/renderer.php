@@ -329,6 +329,13 @@ function updateDeezCredentials($email, $password) {
 	fclose($fh);
 }
 
+// $_SESSION lookup with a default. Not every key exists as a cfg_system row on
+// every moOde release, and an undefined -- or empty -- one read straight would
+// resolve a setting from nothing.
+function qobuzSess($key, $default) {
+	return isset($_SESSION[$key]) && $_SESSION[$key] !== '' ? $_SESSION[$key] : $default;
+}
+
 // Qobuz Connect
 function startQobuz() {
 	$result = sqlRead('cfg_qobuz', sqlConnect());
@@ -389,15 +396,33 @@ function startQobuz() {
 	// which is the right answer nearly always; an explicit value is for a Pi
 	// that is doing more than being a renderer.
 	sysCmd('qbzd settings set audio.memory_cache_mb ' . ($cfgQobuz['memory_cache_mb'] ?? 'auto'));
-	// Volume. qbzd's hardware volume opens an ALSA mixer named after its output
-	// device, and a virtual device has none -- so with _audioout it can only
-	// ever fail, and the app's slider is applied in software. The DAC's own
-	// control is still there and still moOde's: qbzevent.sh sets it to 0dB when
-	// a session takes the render, and "Locked at 100%" leaves the stream at full
-	// scale for anyone who wants the volume to come from the amp instead.
+	// Volume. Hardware volume needs a mixer, and the output device is now the
+	// virtual _audioout, which has none -- so name the card separately
+	// (audio.alsa_mixer_device, qbzd 2.0.2.moode27+). An ALSA control name is
+	// per-card and carries no subdevice, hence hw:N and not hw:N,0.
+	//
+	// It also needs the DAC to actually have a volume control, which is what
+	// alsavolume == 'none' means: anywhere else audio.alsa_hardware_volume can
+	// only fail, so resolve it here rather than trusting the stored value.
+	// 'auto' takes hardware whenever it is available, because software volume
+	// scales every sample and throws away the bit-perfection.
+	//
+	// Note this is the SAME mixer control moOde's own volume uses, so a change
+	// made from the Qobuz app persists and affects MPD playback afterwards.
+	// That is the existing behaviour for a renderer holding the DAC, and it is
+	// why qbzevent.sh sets the control to 0dB when a session takes the render.
+	$hwVolume = qobuzSess('audioout', 'Local') == 'Local' &&
+		qobuzSess('alsavolume', 'none') != 'none';
+	sysCmd('qbzd settings set audio.alsa_mixer_device ' .
+		($hwVolume ? '"hw:' . qobuzSess('cardnum', '0') . '"' : 'auto'));
 	$volumeMode = isset($cfgQobuz['volume_mode']) ? $cfgQobuz['volume_mode'] : 'auto';
+	if ($volumeMode == 'auto') {
+		$volumeMode = $hwVolume ? 'hardware' : 'software';
+	} else if ($volumeMode == 'hardware' && !$hwVolume) {
+		$volumeMode = 'software';
+	}
 	sysCmd('qbzd settings set qconnect.volume_mode ' . ($volumeMode == 'locked' ? 'locked' : 'software'));
-	sysCmd('qbzd settings set audio.alsa_hardware_volume false');
+	sysCmd('qbzd settings set audio.alsa_hardware_volume ' . ($volumeMode == 'hardware' ? 'true' : 'false'));
 	// Non-interactive quality fallback: the stock value is "ask", which cannot
 	// work on a headless box — there is nobody to answer, so a track the DAC
 	// cannot do at full rate has no defined outcome. Play it at a supported

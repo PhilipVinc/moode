@@ -132,8 +132,6 @@ INSERT OR IGNORE INTO cfg_system (id, param, value) VALUES (179, 'qobuzname', 'M
 -- gone (the renderer now outputs to _audioout and follows Audio Config). The
 -- INSERT OR IGNORE above cannot replace it, so rename it in place.
 UPDATE cfg_qobuz SET param = 'memory_cache_mb', value = 'auto' WHERE param = 'output_mode';
--- 'hardware' is no longer offered: a virtual output device has no ALSA mixer.
-UPDATE cfg_qobuz SET value = 'auto' WHERE param = 'volume_mode' AND value = 'hardware';
 UPDATE cfg_system SET value = '0' WHERE param = 'qbzactive';
 UPDATE cfg_system SET value = (CAST(value AS INTEGER) | $FEAT_QOBUZ) WHERE param = 'feat_bitmask';
 SQL

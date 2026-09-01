@@ -73,11 +73,16 @@
 				<a aria-label="Help" class="config-info-toggle" data-cmd="info-volume-mode" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
 				<span id="info-volume-mode" class="config-help-info">
 					How the Qobuz app's volume slider is applied:
-					<br>&bull; <b>Software</b> &mdash; scales the samples. Works with any output, but the
-					audio is no longer bit-perfect.
+					<br>&bull; <b>Auto</b> &mdash; uses the DAC's own volume control when there is one,
+					otherwise software.
+					<br>&bull; <b>DAC hardware volume</b> &mdash; sends the slider to the DAC's volume
+					control, so the audio stays bit-perfect. Needs a DAC that has one. This is the same
+					control moOde's volume uses, so a change made from the Qobuz app persists and
+					affects moOde playback afterwards.
+					<br>&bull; <b>Software</b> &mdash; scales the samples instead. Works with any
+					output, but the audio is no longer bit-perfect.
 					<br>&bull; <b>Locked at 100%</b> &mdash; keeps the stream at full scale and ignores
-					the app's slider, so volume must come from moOde, your amplifier or your DAC. This is
-					the setting to use for bit-perfect playback.
+					the app's slider, so volume must come from moOde, your amplifier or your DAC.
 				</span>
 			</div>
 

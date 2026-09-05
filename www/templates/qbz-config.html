@@ -147,6 +147,39 @@
 				</span>
 			</div>
 
+			<label class="control-label" for="initial-volume">Volume on connect</label>
+			<div class="controls">
+				<select id="initial-volume" class="config-select-large" name="config[initial_volume]">
+					$_select[initial_volume]
+				</select>
+				<a aria-label="Help" class="config-info-toggle" data-cmd="info-initial-volume" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
+				<span id="info-initial-volume" class="config-help-info">
+					What the volume becomes when a Qobuz app picks this player.
+					<br><br><b>Whatever the app asks for</b> matches how AirPlay behaves. The catch is
+					that an app which has never played to this player before tends to arrive near
+					100%, which is startling if nothing downstream of moOde has a volume control.
+					<br><br>Choosing a percentage sets it on connect instead, and the app's slider
+					follows. It does not limit anything afterwards &mdash; you can turn it up from the
+					app as usual.
+				</span>
+			</div>
+
+			<label class="control-label" for="alsa-buffer-ms">Audio buffer</label>
+			<div class="controls">
+				<select id="alsa-buffer-ms" class="config-select-large" name="config[alsa_buffer_ms]">
+					$_select[alsa_buffer_ms]
+				</select>
+				<a aria-label="Help" class="config-info-toggle" data-cmd="info-alsa-buffer-ms" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
+				<span id="info-alsa-buffer-ms" class="config-help-info">
+					How far ahead of the DAC the renderer keeps audio ready. <b>Auto</b> follows the
+					track: a quarter of a second at 96 kHz, half a second at 192 kHz.
+					<br><br>Raise it if you hear brief dropouts, clicks or static &mdash; particularly on
+					a player using Wi-Fi, or one that is also serving a library. The renderer then has
+					more slack to ride out a stall before the sound breaks up. It costs a few MB of
+					memory, and adds a delay before playback starts that you are unlikely to notice.
+				</span>
+			</div>
+
 			<label class="control-label" for="gapless">Gapless playback</label>
 			<div class="controls">
 				<select id="gapless" class="config-select-large" name="config[gapless]" $_gapless_disabled>

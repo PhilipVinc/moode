@@ -56,7 +56,7 @@ foreach ($result as $row) {
 // UPDATE in the save handler would silently no-op.
 $qobuzDefaults = array('pairing' => 'Yes', 'buffer_seconds' => '2', 'volume_mode' => 'auto',
 	'stream_first' => 'Yes', 'track_cache' => 'Yes', 'quality_fallback' => 'fallback',
-	'memory_cache_mb' => 'auto');
+	'memory_cache_mb' => 'auto', 'alsa_buffer_ms' => 'auto', 'initial_volume' => 'off');
 foreach ($qobuzDefaults as $param => $default) {
 	if (!isset($cfgQobuz[$param])) {
 		sqlInsert('cfg_qobuz', $dbh, "'" . $param . "', '" . $default . "'");
@@ -194,6 +194,32 @@ $qobuzCacheSizes = array('auto' => 'Auto, sized from this player\'s RAM (Default
 foreach ($qobuzCacheSizes as $value => $label) {
 	$_select['memory_cache_mb'] .= "<option value=\"" . $value . "\" " .
 		(($cfgQobuz['memory_cache_mb'] == $value) ? "selected" : "") . ">" . $label . "</option>\n";
+}
+
+// ALSA buffer length for the bit-perfect direct path. The default is sized
+// for a desktop; a Pi streaming hi-res over WiFi to a USB DAC has to survive
+// network jitter, an SD card and a shared USB bus on a quarter of a second of
+// slack, and an underrun there is an audible click. Raising it costs a few MB
+// and latency nobody listening to a renderer can perceive.
+$qobuzBufferLengths = array('auto' => 'Auto, from the track\'s sample rate (Default)',
+	'250' => '250 ms', '500' => '500 ms', '1000' => '1 second',
+	'2000' => '2 seconds (most tolerant)');
+foreach ($qobuzBufferLengths as $value => $label) {
+	$_select['alsa_buffer_ms'] .= "<option value=\"" . $value . "\" " .
+		(($cfgQobuz['alsa_buffer_ms'] == $value) ? "selected" : "") . ">" . $label . "</option>\n";
+}
+
+// Volume to set on ourselves when a Qobuz app picks this player. A controller
+// that has never spoken to this renderer sends its own volume, which for the
+// iOS app is near 100 % — startling on a system with no volume control after
+// moOde. "Off" is AirPlay's behaviour: whatever the app asks for.
+$qobuzInitialVolumes = array('off' => 'Whatever the app asks for (Default)');
+foreach (array(10, 20, 30, 40, 50, 60, 70, 80, 90, 100) as $pct) {
+	$qobuzInitialVolumes[(string)$pct] = $pct . '%';
+}
+foreach ($qobuzInitialVolumes as $value => $label) {
+	$_select['initial_volume'] .= "<option value=\"" . $value . "\" " .
+		(($cfgQobuz['initial_volume'] == $value) ? "selected" : "") . ">" . $label . "</option>\n";
 }
 
 $_select['stream_first'] .= "<option value=\"Yes\" " . (($cfgQobuz['stream_first'] == 'Yes') ? "selected" : "") . ">As soon as buffered (Default)</option>\n";

@@ -126,6 +126,8 @@ INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (7, 'memory_cache_mb',
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (8, 'stream_first', 'Yes');
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (9, 'track_cache', 'Yes');
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (10, 'quality_fallback', 'fallback');
+INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (11, 'alsa_buffer_ms', 'auto');
+INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (12, 'initial_volume', 'off');
 INSERT OR IGNORE INTO cfg_system (id, param, value) VALUES (178, 'qobuzsvc', '0');
 INSERT OR IGNORE INTO cfg_system (id, param, value) VALUES (179, 'qobuzname', 'Moode Qobuz');
 -- Upgrade from an earlier preview: row 7 used to be 'output_mode', which is

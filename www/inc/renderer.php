@@ -396,6 +396,13 @@ function startQobuz() {
 	// which is the right answer nearly always; an explicit value is for a Pi
 	// that is doing more than being a renderer.
 	sysCmd('qbzd settings set audio.memory_cache_mb ' . ($cfgQobuz['memory_cache_mb'] ?? 'auto'));
+	// How far ahead of the DAC the bit-perfect path keeps audio ready. "auto"
+	// follows the track's rate; raising it is the answer to dropouts and clicks
+	// on a player that also has Wi-Fi and an SD card competing for time.
+	sysCmd('qbzd settings set audio.alsa_buffer_ms ' . ($cfgQobuz['alsa_buffer_ms'] ?? 'auto'));
+	// Volume when a Qobuz app picks this player. "off" accepts whatever the app
+	// sends, which is AirPlay's behaviour and can arrive near 100%.
+	sysCmd('qbzd settings set qconnect.initial_volume ' . ($cfgQobuz['initial_volume'] ?? 'off'));
 	// Volume. Hardware volume needs a mixer, and the output device is now the
 	// virtual _audioout, which has none -- so name the card separately
 	// (audio.alsa_mixer_device, qbzd 2.0.2.moode27+). An ALSA control name is

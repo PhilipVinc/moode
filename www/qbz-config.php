@@ -36,7 +36,7 @@ foreach ($result as $row) {
 $qobuzDefaults = array('buffer_seconds' => '2', 'volume_mode' => 'auto',
 	'stream_first' => 'Yes', 'track_cache' => 'Yes', 'quality_fallback' => 'fallback',
 	'memory_cache_mb' => 'auto', 'alsa_buffer_ms' => 'auto', 'initial_volume' => 'off',
-	'track_caching' => 'disk');
+	'track_caching' => (@file('/proc/meminfo') && preg_match('/^MemTotal:\s+(\d+) kB/m', file_get_contents('/proc/meminfo'), $mt) && (int)$mt[1] >= 1900 * 1024) ? 'memory' : 'disk');
 foreach ($qobuzDefaults as $param => $default) {
 	if (!isset($cfgQobuz[$param])) {
 		sqlInsert('cfg_qobuz', $dbh, "'" . $param . "', '" . $default . "'");
@@ -127,9 +127,12 @@ if (is_readable('/proc/meminfo') && preg_match('/^MemTotal:\s+(\d+) kB/m', file_
 // 2 GB nominal: a board sold as 2 GB reports ~1.94 GiB, so test below the round number.
 $_memory_caching_offered = $memTotalKb >= 1900 * 1024;
 
-$qobuzCaching = array('disk' => 'On the SD card (Default)');
+// The default follows the player: memory where there is room, card otherwise.
 if ($_memory_caching_offered) {
-	$qobuzCaching['memory'] = 'In memory, nothing written to the card';
+	$qobuzCaching = array('memory' => 'In memory, nothing written to the card (Default)',
+		'disk' => 'On the SD card');
+} else {
+	$qobuzCaching = array('disk' => 'On the SD card (Default)');
 }
 $qobuzCaching['off'] = 'Off, stream only (no gapless)';
 foreach ($qobuzCaching as $value => $label) {

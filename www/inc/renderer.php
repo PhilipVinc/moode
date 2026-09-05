@@ -380,10 +380,9 @@ function startQobuz() {
 	sysCmd('qbzd settings set playback.quality ' . $cfgQobuz['quality']);
 	// Track caching drives three daemon settings, because they are one decision:
 	// holding the next track ready is what makes gapless possible at all, and
-	// where it is held is what decides card wear. A pre-fold config (track_cache
-	// + gapless as separate rows) maps onto the same three.
-	$caching = $cfgQobuz['track_caching'] ?? (
-		(($cfgQobuz['track_cache'] ?? 'Yes') == 'Yes') ? 'disk' : 'off');
+	// where it is held is what decides card wear. The installer resets cfg_qobuz
+	// to this preview's defaults, so the row is always present.
+	$caching = $cfgQobuz['track_caching'] ?? 'disk';
 	$cacheTracks = $caching != 'off';
 	sysCmd('qbzd settings set audio.streaming_only ' . ($cacheTracks ? 'false' : 'true'));
 	sysCmd('qbzd settings set audio.cache_to_disk ' . ($caching == 'disk' ? 'true' : 'false'));

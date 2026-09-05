@@ -114,30 +114,43 @@ chmod +x /var/www/daemon/watchdog.sh /var/www/util/*.sh \
 	/var/local/www/commandw/qbzevent.sh /usr/local/bin/moodeutl
 
 # 4. DB: cfg_qobuz table + cfg_system rows + feature bit
+#
+# Settings are RESET to this preview's defaults on every install. Previews
+# rename and fold settings as they go (track_cache + gapless became
+# track_caching; output_mode and the account/pairing controls are gone), and a
+# half-migrated table is the kind of thing that makes a bug report unreadable.
+# The pre-install table is in the backup, and restore.sh puts it back.
+#
+# Caching defaults to memory where there is room for it: a Hi-Res pair is around
+# 450 MB, so 2 GB and up keeps tracks in RAM and never writes to the card, while
+# smaller players cache to the card as before. A board sold as "2 GB" reports
+# ~1.94 GiB, so test below the round number.
+MEM_TOTAL_KB=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
+if [ "${MEM_TOTAL_KB:-0}" -ge $((1900 * 1024)) ]; then
+	DEFAULT_CACHING="memory"
+else
+	DEFAULT_CACHING="disk"
+fi
+echo "== track caching default: $DEFAULT_CACHING ($((MEM_TOTAL_KB / 1024)) MB of RAM)"
+
 sqlite3 "$DB" <<SQL
 CREATE TABLE IF NOT EXISTS cfg_qobuz (id INTEGER PRIMARY KEY, param CHAR (32), value CHAR (32));
-INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (1, 'quality', 'hires_plus');
-INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (2, 'gapless', 'Yes');
-INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (3, 'normalize_volume', 'No');
-INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (4, 'pairing', 'Yes');
-INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (5, 'buffer_seconds', '2');
-INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (6, 'volume_mode', 'auto');
-INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (7, 'memory_cache_mb', 'auto');
-INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (8, 'stream_first', 'Yes');
-INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (9, 'track_cache', 'Yes');
-INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (10, 'quality_fallback', 'fallback');
-INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (11, 'alsa_buffer_ms', 'auto');
-INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (12, 'initial_volume', 'off');
--- Track caching folds the old track_cache + gapless pair into one choice:
--- 'disk' | 'memory' | 'off'. An upgrade carries the old answer over.
-INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (13, 'track_caching',
-	COALESCE((SELECT CASE WHEN value = 'Yes' THEN 'disk' ELSE 'off' END FROM cfg_qobuz WHERE param = 'track_cache'), 'disk'));
+DELETE FROM cfg_qobuz;
+INSERT INTO cfg_qobuz (id, param, value) VALUES (1, 'quality', 'hires_plus');
+INSERT INTO cfg_qobuz (id, param, value) VALUES (2, 'gapless', 'Yes');
+INSERT INTO cfg_qobuz (id, param, value) VALUES (3, 'normalize_volume', 'No');
+INSERT INTO cfg_qobuz (id, param, value) VALUES (4, 'pairing', 'Yes');
+INSERT INTO cfg_qobuz (id, param, value) VALUES (5, 'buffer_seconds', '2');
+INSERT INTO cfg_qobuz (id, param, value) VALUES (6, 'volume_mode', 'auto');
+INSERT INTO cfg_qobuz (id, param, value) VALUES (7, 'memory_cache_mb', 'auto');
+INSERT INTO cfg_qobuz (id, param, value) VALUES (8, 'stream_first', 'Yes');
+INSERT INTO cfg_qobuz (id, param, value) VALUES (9, 'track_cache', 'Yes');
+INSERT INTO cfg_qobuz (id, param, value) VALUES (10, 'quality_fallback', 'fallback');
+INSERT INTO cfg_qobuz (id, param, value) VALUES (11, 'alsa_buffer_ms', 'auto');
+INSERT INTO cfg_qobuz (id, param, value) VALUES (12, 'initial_volume', 'off');
+INSERT INTO cfg_qobuz (id, param, value) VALUES (13, 'track_caching', '$DEFAULT_CACHING');
 INSERT OR IGNORE INTO cfg_system (id, param, value) VALUES (178, 'qobuzsvc', '0');
 INSERT OR IGNORE INTO cfg_system (id, param, value) VALUES (179, 'qobuzname', 'Moode Qobuz');
--- Upgrade from an earlier preview: row 7 used to be 'output_mode', which is
--- gone (the renderer now outputs to _audioout and follows Audio Config). The
--- INSERT OR IGNORE above cannot replace it, so rename it in place.
-UPDATE cfg_qobuz SET param = 'memory_cache_mb', value = 'auto' WHERE param = 'output_mode';
 UPDATE cfg_system SET value = '0' WHERE param = 'qbzactive';
 UPDATE cfg_system SET value = (CAST(value AS INTEGER) | $FEAT_QOBUZ) WHERE param = 'feat_bitmask';
 SQL

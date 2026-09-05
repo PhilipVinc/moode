@@ -393,7 +393,11 @@ function startQobuz() {
 	sysCmd('qbzd settings set audio.normalization_enabled ' . ($cfgQobuz['normalize_volume'] == 'Yes' ? 'true' : 'false'));
 	sysCmd('qbzd settings set playback.mpris false');
 	sysCmd('qbzd settings set qconnect.device_name "' . $_SESSION['qobuzname'] . '"');
-	sysCmd('qbzd settings set qconnect.pairing ' . (($cfgQobuz['pairing'] ?? 'Yes') == 'Yes' ? 'on' : 'off'));
+	// Pairing is always on: it is what lets any Qobuz app cast here without the
+	// player being logged into an account, and the Account section (login,
+	// logout, status) is gone from the config page because of it. Nothing in the
+	// UI can turn this off any more, so do not read a stored value.
+	sysCmd('qbzd settings set qconnect.pairing on');
 	sysCmd('qbzd settings set audio.stream_buffer_seconds ' . ($cfgQobuz['buffer_seconds'] ?? '2'));
 	// In-memory track cache. "auto" lets qbzd size it from this box's RAM,
 	// which is the right answer nearly always; an explicit value is for a Pi

@@ -47,8 +47,9 @@
 
 			<label class="control-label">Output</label>
 			<div class="controls">
+				<span class="config-help-static" style="display:inline-block;margin:0;vertical-align:top;">$_qobuz_output_chain</span>
 				<a aria-label="Help" class="config-info-toggle" data-cmd="info-output-chain" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
-				<span class="config-help-static">$_qobuz_output_chain<br>$_qobuz_output_detail</span>
+				<span class="config-help-static" style="margin-top:2px;">$_qobuz_output_detail</span>
 				<span id="info-output-chain" class="config-help-info">
 					Qobuz playback goes through the same output chain as MPD, so whatever is set in
 					Audio Config &mdash; Output mode, CamillaDSP, the equalizers, crossfeed, multiroom
@@ -182,42 +183,6 @@
 				</span>
 			</div>
 
-			<div class="config-horiz-rule">Account</div>
-
-			<label class="control-label" for="pairing">Local pairing</label>
-			<div class="controls">
-				<select id="pairing" class="config-select-large" name="config[pairing]">
-					$_select[pairing]
-				</select>
-				<a aria-label="Help" class="config-info-toggle" data-cmd="info-pairing" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
-				<span id="info-pairing" class="config-help-info">
-					Advertise this player on the network so any Qobuz app can cast to it without
-					a login. The app hands the player its own session when a device is selected;
-					the most recent cast takes over, like Spotify Connect. Turn this off to log
-					the player into a fixed Qobuz account instead.
-				</span>
-			</div>
-
-			<label class="control-label">Status</label>
-			<div class="controls">
-				<span class="config-help-static">$_qobuz_account_status</span>
-			</div>
-
-			<div class="$_qobuz_login_hide">
-				<div class="controls">
-					<button class="btn btn-medium btn-primary config-btn btn-submit" type="submit" name="qobuz_login" value="1" $_qobuz_login_disabled>Login</button>
-					<span class="config-btn-after">Qobuz account</span>
-					$_qobuz_login_hint
-					$_qobuz_login_url_msg
-				</div>
-			</div>
-
-			<div class="$_qobuz_logout_hide">
-				<div class="controls">
-					<button class="btn btn-medium btn-primary config-btn btn-submit" type="submit" name="qobuz_logout" value="1">Logout</button>
-					<span class="config-btn-after">Qobuz account</span>
-				</div>
-			</div>
 		</div>
 	</form>
 </div>

@@ -119,14 +119,18 @@ activate () {
 # always releases the UI.
 still_active () {
 	local STATE
-	# renders_here, not session_active: the latter only says the daemon holds a
+	# is_active, not session_active: the latter only says the daemon holds a
 	# cloud connection, which stays true when the Qobuz app moves playback to
 	# its own speakers -- so the overlay used to sit there owning the screen
 	# while this player was silent and no longer the session's renderer
-	# (reported by Tim Curtis). `// true` keeps an older daemon, which does not
-	# report the field, behaving exactly as before.
+	# (reported by Tim Curtis).
+	#
+	# has() rather than `//`: jq's alternative operator treats FALSE like null,
+	# so `.is_active // true` fell through to true for exactly the case this
+	# check exists to catch, and every switch-away answered "still active".
+	# An older daemon reports no such field and keeps the previous behaviour.
 	STATE=$(curl -s --max-time 2 $QBZD_API/api/status | \
-		jq -r '"\(.playback.state) \(.qconnect.session_active) \(.qconnect.renders_here // true)"' 2>/dev/null)
+		jq -r '"\(.playback.state) \(.qconnect.session_active) \(.qconnect | if has("is_active") then .is_active else true end)"' 2>/dev/null)
 	case "$STATE" in
 		"playing true true"|"paused true true") return 0 ;;
 		*) return 1 ;;
@@ -188,14 +192,20 @@ if [[ $QBZ_EVENT == "PlaybackStateChanged" ]]; then
 			/usr/bin/mpc stop > /dev/null
 		fi
 		activate
-	elif [[ $QBZ_STATE == "stopped" ]]; then
+	elif [[ $QBZ_STATE == "stopped" || $QBZ_STATE == "paused" ]]; then
+		# A pause normally KEEPS the render (AirPlay/Spotify parity — their flags
+		# are session-scoped, and the session still owns the device across a
+		# pause). deactivate() asks the daemon before tearing anything down, and
+		# "paused while we are still the session's renderer" is a keep — so this
+		# costs nothing in the ordinary case.
+		#
+		# It matters when the Qobuz app moves playback back to its own speakers.
+		# The cloud does not send SetActive(false) for that: it names a different
+		# renderer, and our state simply goes to paused. Without re-checking
+		# here, nothing ever asked again, and the overlay sat there owning the
+		# screen while the music played on the phone.
 		deactivate
 	fi
-	# NOTE: paused KEEPS the render (AirPlay/Spotify parity — their flags are
-	# session-scoped). The session still owns the audio device while paused,
-	# and any renderUI rebuild (page load, window resize) reads qbzactive from
-	# cfg_system — deactivating on pause made the overlay vanish on reload or
-	# resize whenever playback happened to be paused.
 fi
 
 if [[ $QBZ_EVENT == "QconnectSessionChanged" ]]; then

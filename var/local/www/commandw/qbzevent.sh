@@ -40,7 +40,9 @@ for MATCH_EVENT in "${PLAYER_EVENTS[@]}"
 do
 	if [[ $QBZ_EVENT == $MATCH_EVENT ]]; then
 		MATCH=1
-		debug_log "Process: "$QBZ_EVENT
+		# The state and session flag are what a bug report needs: which event
+		# arrived, in what order, and what it said.
+		debug_log "Process: $QBZ_EVENT state=$QBZ_STATE session=$QBZ_SESSION_ACTIVE"
 	fi
 done
 # Exit and log if not a match

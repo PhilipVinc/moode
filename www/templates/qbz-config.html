@@ -47,8 +47,8 @@
 
 			<label class="control-label">Output</label>
 			<div class="controls">
-				<span class="config-help-static">$_qobuz_output_chain</span>
 				<a aria-label="Help" class="config-info-toggle" data-cmd="info-output-chain" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
+				<span class="config-help-static">$_qobuz_output_chain<br>$_qobuz_output_detail</span>
 				<span id="info-output-chain" class="config-help-info">
 					Qobuz playback goes through the same output chain as MPD, so whatever is set in
 					Audio Config &mdash; Output mode, CamillaDSP, the equalizers, crossfeed, multiroom
@@ -58,11 +58,6 @@
 					own rate. With anything inserted in the chain the stream is converted to the rate
 					that chain runs at, which is the point of inserting it.
 				</span>
-			</div>
-
-			<label class="control-label">Resolves to</label>
-			<div class="controls">
-				<span class="config-help-static">$_qobuz_output_detail</span>
 			</div>
 
 			<label class="control-label" for="volume-mode">Volume control</label>

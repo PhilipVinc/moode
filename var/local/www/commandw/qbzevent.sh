@@ -117,10 +117,16 @@ activate () {
 # always releases the UI.
 still_active () {
 	local STATE
+	# renders_here, not session_active: the latter only says the daemon holds a
+	# cloud connection, which stays true when the Qobuz app moves playback to
+	# its own speakers -- so the overlay used to sit there owning the screen
+	# while this player was silent and no longer the session's renderer
+	# (reported by Tim Curtis). `// true` keeps an older daemon, which does not
+	# report the field, behaving exactly as before.
 	STATE=$(curl -s --max-time 2 $QBZD_API/api/status | \
-		jq -r '"\(.playback.state) \(.qconnect.session_active)"' 2>/dev/null)
+		jq -r '"\(.playback.state) \(.qconnect.session_active) \(.qconnect.renders_here // true)"' 2>/dev/null)
 	case "$STATE" in
-		"playing true"|"paused true") return 0 ;;
+		"playing true true"|"paused true true") return 0 ;;
 		*) return 1 ;;
 	esac
 }
@@ -170,6 +176,15 @@ deactivate () {
 
 if [[ $QBZ_EVENT == "PlaybackStateChanged" ]]; then
 	if [[ $QBZ_STATE == "playing" || $QBZ_STATE == "loading" ]]; then
+		# Take the card BEFORE activate(), which returns early when the render
+		# is already marked active and so never reaches its own mpc stop. That
+		# early return is why casting while the radio played did nothing: the
+		# session was still active from a previous cast, MPD kept the device,
+		# and qbzd's open failed ~1s later with the card busy.
+		if [[ -n $(/usr/bin/mpc status | grep playing) ]]; then
+			debug_log "Takeover: stopping MPD for an incoming $QBZ_STATE"
+			/usr/bin/mpc stop > /dev/null
+		fi
 		activate
 	elif [[ $QBZ_STATE == "stopped" ]]; then
 		deactivate
@@ -182,6 +197,18 @@ if [[ $QBZ_EVENT == "PlaybackStateChanged" ]]; then
 fi
 
 if [[ $QBZ_EVENT == "QconnectSessionChanged" ]]; then
+	if [[ $QBZ_SESSION_ACTIVE == "true" ]]; then
+		# Free the card as soon as the app SELECTS this player, not when it
+		# starts playing. spotevent.sh does exactly this on session_connected,
+		# and it is why Spotify takes over cleanly while we did not: MPD keeps
+		# the ALSA device for several seconds after `mpc stop`, and stopping it
+		# at the same instant qbzd opens leaves the open racing a release that
+		# has not happened yet. Selecting the device happens seconds earlier.
+		if [[ -n $(/usr/bin/mpc status | grep playing) ]]; then
+			debug_log "Takeover: stopping MPD, the app selected this player"
+			/usr/bin/mpc stop > /dev/null
+		fi
+	fi
 	if [[ $QBZ_SESSION_ACTIVE == "false" ]]; then
 		WAS_ACTIVE=$QBZACTIVE
 		deactivate
@@ -196,16 +223,35 @@ fi
 # A start attempt can fail because the audio device is still busy: retry
 if [[ $QBZ_EVENT == "PlaybackError" ]]; then
 	debug_log "Error:   "$QBZ_MESSAGE
+	# Arm the budget here too. A cast that fails on its very first open never
+	# went through a loading event, so activate() never ran and there is no
+	# budget file yet — which used to mean zero retries for exactly the case
+	# that needs them.
+	if [[ ! -f $RETRY_FILE ]]; then
+		echo $RETRY_BUDGET > $RETRY_FILE
+	fi
 	RETRIES_LEFT=$(cat $RETRY_FILE 2> /dev/null || echo 0)
-	MPD_PLAYING=$(/usr/bin/mpc status | grep playing)
-	if [[ $RETRIES_LEFT -gt 0 && -z $MPD_PLAYING ]]; then
+	if [[ -n $(/usr/bin/mpc status | grep playing) ]]; then
+		# MPD holds the card, so qbzd cannot open _audioout: its ALSA layer
+		# retries for about 1.5s and gives up. This used to end the attempt --
+		# the renderer stayed silent while the radio played on, which is the
+		# "Qobuz will not start while moOde is playing" report.
+		#
+		# Take the device instead. Casting is a newer user action than whatever
+		# was already playing, and moOde's renderers are last-one-wins: the
+		# reverse direction is already handled in worker.php, which pauses Qobuz
+		# when MPD starts underneath it.
+		debug_log "Takeover: stopping MPD so the cast can have the device"
+		/usr/bin/mpc stop > /dev/null
+		sleep 1
+	fi
+	if [[ $RETRIES_LEFT -gt 0 ]]; then
 		echo $((RETRIES_LEFT - 1)) > $RETRY_FILE
 		sleep 1
 		qbzd play -q
 	else
-		# Out of retries (or MPD grabbed the device): since paused no longer
-		# deactivates, release the render here or a failed start would leave
-		# the UI locked on a silent session.
+		# Out of retries: since paused no longer deactivates, release the render
+		# here or a failed start would leave the UI locked on a silent session.
 		deactivate
 	fi
 fi
@@ -236,7 +282,8 @@ send_metadata () {
 		--arg g "$SFORMAT" \
 		--arg h "$OFORMAT" \
 		--arg i "$PLAYSTATE" \
-		'{fecmd: $a, title: $b, artist: $c, album: $d, duration: $e, cover_url: $f, sformat: $g, oformat: $h, playstate: $i}')
+		--arg j "$TRACK_ID" \
+		'{fecmd: $a, title: $b, artist: $c, album: $d, duration: $e, cover_url: $f, sformat: $g, oformat: $h, playstate: $i, track_id: $j}')
 	echo -e "$METADATA_JSON" > $QBZMETA_CACHE_FILE
 	debug_log "Meta:    playstate=$PLAYSTATE sformat=$SFORMAT oformat=$OFORMAT"
 	/var/www/util/send-fecmd.php "$METADATA_JSON"
@@ -259,11 +306,28 @@ load_cached_metadata () {
 			duration) DURATION=$VALUE ;;
 			cover_url) COVER_URL=$VALUE ;;
 			sformat) SFORMAT=$VALUE ;;
+			track_id) TRACK_ID=$VALUE ;;
 		esac
 	done < <(jq -r 'to_entries[] | "\(.key)=\(.value)"' $QBZMETA_CACHE_FILE 2> /dev/null)
 	# An empty cover means the cache was written before a track was resolved;
 	# re-sending it would blank the overlay (spotevent.sh guards the same way).
-	[[ -n $COVER_URL ]]
+	if [[ -z $COVER_URL ]]; then
+		return 1
+	fi
+	# Nor re-send a frame for a track the daemon has already moved off. Picking
+	# a new track fires PlaybackStateChanged BEFORE TrackStarted, so a cache
+	# written for the previous track put ITS cover on screen for a moment and
+	# then swapped -- the artwork flash slowfret reported. When the ids disagree
+	# there is nothing worth showing yet; the imminent TrackStarted carries the
+	# real frame. An older daemon reports no track id, and then this is skipped.
+	local LIVE_TRACK_ID
+	LIVE_TRACK_ID=$(curl -s --max-time 2 $QBZD_API/api/status | \
+		jq -r '.playback.track_id // empty' 2>/dev/null)
+	if [[ -n $TRACK_ID && -n $LIVE_TRACK_ID && $TRACK_ID != $LIVE_TRACK_ID ]]; then
+		debug_log "Stale:   cached track $TRACK_ID, daemon plays $LIVE_TRACK_ID"
+		return 1
+	fi
+	return 0
 }
 
 # Update metadata and send to front-end
@@ -276,6 +340,7 @@ if [[ $QBZ_EVENT == "TrackStarted" ]]; then
 	ALBUM=$QBZ_ALBUM
 	DURATION=$QBZ_DURATION
 	COVER_URL=$QBZ_COVER_URL
+	TRACK_ID=$QBZ_TRACK_ID
 	SFORMAT="FLAC $QBZ_BIT_DEPTH/$QBZ_SAMPLE_RATE kHz"
 	send_metadata "Resume"
 fi

@@ -115,37 +115,27 @@
 				</span>
 			</div>
 
-			<label class="control-label" for="track-cache">Track cache</label>
+			<label class="control-label" for="track-caching">Track caching</label>
 			<div class="controls">
-				<select id="track-cache" class="config-select-large" name="config[track_cache]">
-					$_select[track_cache]
+				<select id="track-caching" class="config-select-large" name="config[track_caching]">
+					$_select[track_caching]
 				</select>
-				<a aria-label="Help" class="config-info-toggle" data-cmd="info-track-cache" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
-				<span id="info-track-cache" class="config-help-info">
-					Whether finished tracks are kept on disk for instant replay:
-					<br>&bull; <b>Stream only, do not cache</b> &mdash; writes nothing to the SD card.
-					A hi-res track is 60&ndash;80 MB, so this spares the card over a long listening
-					session. Gapless playback is not possible without the cache.
-					<br>&bull; <b>Cache tracks on disk</b> &mdash; replaying a track is instant, and
-					gapless playback works because the next track can be loaded ahead of time.
+				<a aria-label="Help" class="config-info-toggle" data-cmd="info-track-caching" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
+				<span id="info-track-caching" class="config-help-info">
+					Where the renderer keeps the track it is playing and the one coming next. Holding
+					the next track ready is what makes gapless playback possible, so this one choice
+					decides gapless as well.
+					<br>&bull; <b>On the SD card</b> &mdash; gapless works, and a track you play again
+					starts instantly. A hi-res track is 60&ndash;200 MB, so a long listening session
+					does write a fair amount to the card.
+					<br>&bull; <b>In memory</b> &mdash; the same, without ever writing to the card.
+					Offered only on players with 2 GB of memory or more, because it means holding two
+					whole tracks at once; smaller players are not given the option.
+					<br>&bull; <b>Off</b> &mdash; nothing is kept anywhere. Kindest to the card, and
+					there will be a short gap between tracks.
 				</span>
 			</div>
 
-			<label class="control-label" for="memory-cache-mb">Memory cache</label>
-			<div class="controls">
-				<select id="memory-cache-mb" class="config-select-large" name="config[memory_cache_mb]">
-					$_select[memory_cache_mb]
-				</select>
-				<a aria-label="Help" class="config-info-toggle" data-cmd="info-memory-cache-mb" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
-				<span id="info-memory-cache-mb" class="config-help-info">
-					How much RAM the renderer may hold decoded tracks in. <b>Auto</b> works this out
-					from how much memory this player has and is almost always the right answer.
-					<br><br>Lower it only if this player is doing something else that needs the memory.
-					A hi-res track is around 120 MB, and a track larger than the cache is not cached at
-					all &mdash; so below that, gapless playback of hi-res tracks stops working, because
-					gapless needs the next track held ready.
-				</span>
-			</div>
 
 			<label class="control-label" for="initial-volume">Volume on connect</label>
 			<div class="controls">
@@ -180,19 +170,6 @@
 				</span>
 			</div>
 
-			<label class="control-label" for="gapless">Gapless playback</label>
-			<div class="controls">
-				<select id="gapless" class="config-select-large" name="config[gapless]" $_gapless_disabled>
-					$_select[gapless]
-				</select>
-				<a aria-label="Help" class="config-info-toggle" data-cmd="info-gapless" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
-				<span id="info-gapless" class="config-help-info">
-					Play consecutive tracks without a gap of silence between them. Needs Track cache
-					set to keep tracks on disk: the next track has to be loaded ahead of time, which
-					is not possible when nothing is cached.
-				</span>
-				$_gapless_hint
-			</div>
 
 			<label class="control-label" for="quality-fallback">If the quality is unavailable</label>
 			<div class="controls">

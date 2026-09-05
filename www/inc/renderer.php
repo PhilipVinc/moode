@@ -378,13 +378,16 @@ function startQobuz() {
 	sysCmd('qbzd settings set audio.device "' . $device . '"');
 	sysCmd('qbzd settings set audio.alsa_plugin hw');
 	sysCmd('qbzd settings set playback.quality ' . $cfgQobuz['quality']);
-	// Gapless needs the NEXT track in the cache — the prefetch is a no-op in
-	// streaming-only mode — so it cannot work on a box that does not cache,
-	// whatever the Gapless setting says.
-	$cacheTracks = (isset($cfgQobuz['track_cache']) ? $cfgQobuz['track_cache'] : 'No') == 'Yes';
-	sysCmd('qbzd settings set audio.gapless_enabled ' .
-		(($cacheTracks && $cfgQobuz['gapless'] == 'Yes') ? 'true' : 'false'));
+	// Track caching drives three daemon settings, because they are one decision:
+	// holding the next track ready is what makes gapless possible at all, and
+	// where it is held is what decides card wear. A pre-fold config (track_cache
+	// + gapless as separate rows) maps onto the same three.
+	$caching = $cfgQobuz['track_caching'] ?? (
+		(($cfgQobuz['track_cache'] ?? 'Yes') == 'Yes') ? 'disk' : 'off');
+	$cacheTracks = $caching != 'off';
 	sysCmd('qbzd settings set audio.streaming_only ' . ($cacheTracks ? 'false' : 'true'));
+	sysCmd('qbzd settings set audio.cache_to_disk ' . ($caching == 'disk' ? 'true' : 'false'));
+	sysCmd('qbzd settings set audio.gapless_enabled ' . ($cacheTracks ? 'true' : 'false'));
 	sysCmd('qbzd settings set audio.stream_first_track ' .
 		((isset($cfgQobuz['stream_first']) ? $cfgQobuz['stream_first'] : 'Yes') == 'Yes' ? 'true' : 'false'));
 	sysCmd('qbzd settings set audio.normalization_enabled ' . ($cfgQobuz['normalize_volume'] == 'Yes' ? 'true' : 'false'));

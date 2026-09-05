@@ -56,7 +56,8 @@ foreach ($result as $row) {
 // UPDATE in the save handler would silently no-op.
 $qobuzDefaults = array('pairing' => 'Yes', 'buffer_seconds' => '2', 'volume_mode' => 'auto',
 	'stream_first' => 'Yes', 'track_cache' => 'Yes', 'quality_fallback' => 'fallback',
-	'memory_cache_mb' => 'auto', 'alsa_buffer_ms' => 'auto', 'initial_volume' => 'off');
+	'memory_cache_mb' => 'auto', 'alsa_buffer_ms' => 'auto', 'initial_volume' => 'off',
+	'track_caching' => 'disk');
 foreach ($qobuzDefaults as $param => $default) {
 	if (!isset($cfgQobuz[$param])) {
 		sqlInsert('cfg_qobuz', $dbh, "'" . $param . "', '" . $default . "'");
@@ -153,20 +154,31 @@ $_select['quality'] .= "<option value=\"hires\" " . (($cfgQobuz['quality'] == 'h
 $_select['quality'] .= "<option value=\"hires_plus\" " . (($cfgQobuz['quality'] == 'hires_plus') ? "selected" : "") . ">Hi-Res 24 bit / 192 kHz (Default)</option>\n";
 $_select['pairing'] .= "<option value=\"Yes\" " . (($cfgQobuz['pairing'] == 'Yes') ? "selected" : "") . ">Yes (Default)</option>\n";
 $_select['pairing'] .= "<option value=\"No\" "  . (($cfgQobuz['pairing'] == 'No')  ? "selected" : "") . ">No</option>\n";
-// The gapless prefetch is a no-op in streaming-only mode, so with caching off
-// gapless cannot happen at all. Lock the control and show the value actually in
-// force rather than leaving a stored "Yes" on screen that does nothing. A
-// disabled select posts nothing, so the stored preference survives untouched
-// and comes back as soon as caching is turned on again.
-$_gapless_disabled = $cfgQobuz['track_cache'] == 'Yes' ? '' : 'disabled';
-$_gapless_hint = '';
-if ($_gapless_disabled == '') {
-	$_select['gapless'] .= "<option value=\"Yes\" " . (($cfgQobuz['gapless'] == 'Yes') ? "selected" : "") . ">Yes (Default)</option>\n";
-	$_select['gapless'] .= "<option value=\"No\" "  . (($cfgQobuz['gapless'] == 'No')  ? "selected" : "") . ">No</option>\n";
-} else {
-	$_select['gapless'] .= "<option value=\"No\" selected>No</option>\n";
-	$_gapless_hint = '<span class="config-help-static">Not available: Track cache is set to ' .
-		'stream only, and gapless needs the next track cached ahead of time.</span>';
+// Track caching, gapless and card wear are one decision, so they are one
+// control. Caching is what makes gapless possible at all (the next track has to
+// be ready before the current one ends), and the only real question is where
+// those bytes live.
+//
+// "In memory" is offered only where there is room for the CURRENT and NEXT
+// track at once -- a Hi-Res pair is around 450 MB, and holding two whole tracks
+// is exactly what took a 1 GB player into swap. Below the threshold the option
+// is not rendered at all; the help text says who gets it, so its absence reads
+// as "not for this player" rather than as a missing feature.
+$memTotalKb = 0;
+if (is_readable('/proc/meminfo') && preg_match('/^MemTotal:\s+(\d+) kB/m', file_get_contents('/proc/meminfo'), $m)) {
+	$memTotalKb = (int)$m[1];
+}
+// 2 GB nominal: a board sold as 2 GB reports ~1.94 GiB, so test below the round number.
+$_memory_caching_offered = $memTotalKb >= 1900 * 1024;
+
+$qobuzCaching = array('disk' => 'On the SD card (Default)');
+if ($_memory_caching_offered) {
+	$qobuzCaching['memory'] = 'In memory, nothing written to the card';
+}
+$qobuzCaching['off'] = 'Off, stream only (no gapless)';
+foreach ($qobuzCaching as $value => $label) {
+	$_select['track_caching'] .= "<option value=\"" . $value . "\" " .
+		(($cfgQobuz['track_caching'] == $value) ? "selected" : "") . ">" . $label . "</option>\n";
 }
 $_select['normalize_volume'] .= "<option value=\"Yes\" " . (($cfgQobuz['normalize_volume'] == 'Yes') ? "selected" : "") . ">Yes</option>\n";
 $_select['normalize_volume'] .= "<option value=\"No\" "  . (($cfgQobuz['normalize_volume'] == 'No')  ? "selected" : "") . ">No (Default)</option>\n";
@@ -181,20 +193,6 @@ $_select['volume_mode'] .= "<option value=\"hardware\" " . (($cfgQobuz['volume_m
 	($hwVolumeReason == '' ? "" : " (" . $hwVolumeReason . ")") . "</option>\n";
 $_select['volume_mode'] .= "<option value=\"software\" " . (($cfgQobuz['volume_mode'] == 'software') ? "selected" : "") . ">Software</option>\n";
 $_select['volume_mode'] .= "<option value=\"locked\" "   . (($cfgQobuz['volume_mode'] == 'locked')   ? "selected" : "") . ">Locked at 100%</option>\n";
-
-// In-memory track cache. "Auto" reads this box's RAM (17 %, capped at 400 MB):
-// ~157 MB on a 1 GB Pi, ~338 MB on a 2 GB one. The explicit sizes exist for a
-// Pi that is also doing something else. Below ~120 MB a Hi-Res track no longer
-// fits in the cache and Hi-Res gapless stops working, so the small values say
-// so rather than looking like free wins.
-$qobuzCacheSizes = array('auto' => 'Auto, sized from this player\'s RAM (Default)',
-	'400' => '400 MB', '300' => '300 MB', '200' => '200 MB',
-	'150' => '150 MB', '100' => '100 MB (no Hi-Res gapless)',
-	'50' => '50 MB (no Hi-Res gapless)');
-foreach ($qobuzCacheSizes as $value => $label) {
-	$_select['memory_cache_mb'] .= "<option value=\"" . $value . "\" " .
-		(($cfgQobuz['memory_cache_mb'] == $value) ? "selected" : "") . ">" . $label . "</option>\n";
-}
 
 // ALSA buffer length for the bit-perfect direct path. The default is sized
 // for a desktop; a Pi streaming hi-res over WiFi to a USB DAC has to survive

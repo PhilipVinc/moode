@@ -128,6 +128,10 @@ INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (9, 'track_cache', 'Ye
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (10, 'quality_fallback', 'fallback');
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (11, 'alsa_buffer_ms', 'auto');
 INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (12, 'initial_volume', 'off');
+-- Track caching folds the old track_cache + gapless pair into one choice:
+-- 'disk' | 'memory' | 'off'. An upgrade carries the old answer over.
+INSERT OR IGNORE INTO cfg_qobuz (id, param, value) VALUES (13, 'track_caching',
+	COALESCE((SELECT CASE WHEN value = 'Yes' THEN 'disk' ELSE 'off' END FROM cfg_qobuz WHERE param = 'track_cache'), 'disk'));
 INSERT OR IGNORE INTO cfg_system (id, param, value) VALUES (178, 'qobuzsvc', '0');
 INSERT OR IGNORE INTO cfg_system (id, param, value) VALUES (179, 'qobuzname', 'Moode Qobuz');
 -- Upgrade from an earlier preview: row 7 used to be 'output_mode', which is
@@ -175,6 +179,7 @@ if [ "\$HAVE_VERSION" != "\$WAS_VERSION" ]; then
 !! finish cleaning up by hand:
 !!   sudo rm -f /usr/local/bin/qbzd /var/local/www/qbzd-build
 !!   sudo rm -rf /home/moode/.config/qbzd
+!!   sudo rm -rf /root/.config/qbzd /root/.local/share/qbzd /root/.cache/qbz
 !!   sudo sqlite3 \$DB "DROP TABLE IF EXISTS cfg_qobuz; \\
 !!     DELETE FROM cfg_system WHERE id IN (178, 179);"
 !! (feat_bitmask is rewritten by the update, so leave it alone.)
@@ -219,6 +224,11 @@ echo "== feat_bitmask restored to \$PRE_FEAT"
 #    manual login persist across an uninstall.
 rm -f /usr/local/bin/qbzd /usr/bin/qbzd /var/local/www/qbzd-build
 rm -rf /home/moode/.config/qbzd
+# The daemon runs as ROOT, so its state and its track cache live under /root,
+# not under the moode user. The playback cache alone is capped at 800 MB and is
+# routinely near it -- leaving that behind on an uninstall wastes most of a
+# gigabyte of card for nothing.
+rm -rf /root/.config/qbzd /root/.local/share/qbzd /root/.cache/qbz /root/.cache/qbzd
 [ -f "\$BK/qbzd.usr-bin" ] && cp -a "\$BK/qbzd.usr-bin" /usr/bin/qbzd
 [ -f "\$BK/qbzd.usr-local-bin" ] && cp -a "\$BK/qbzd.usr-local-bin" /usr/local/bin/qbzd
 

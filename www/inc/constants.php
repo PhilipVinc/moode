@@ -20,6 +20,7 @@ const SHAIRPORT_SYNC_LOG = '/var/log/moode_shairport-sync.log';
 const LIBRESPOT_LOG = '/var/log/moode_librespot.log';
 const PLEEZER_LOG = '/var/log/moode_pleezer.log';
 const QBZD_LOG = '/var/log/moode_qbzd.log';
+const QBZEVENT_LOG = '/var/log/moode_qbzevent.log';
 const QOBUZ_LOGIN_LOG = '/var/log/moode_qobuz_login.log';
 const SPOTEVENT_LOG = '/var/log/moode_spotevent.log';
 const DEEZEVENT_LOG = '/var/log/moode_deezevent.log';

@@ -183,6 +183,27 @@
 				</span>
 			</div>
 
+			<div class="config-horiz-rule">Troubleshooting</div>
+
+			<label class="control-label">Diagnostics</label>
+			<div class="controls">
+				<button class="btn btn-medium btn-primary config-btn" type="submit" name="download_qbz_logs" value="1">Download</button>
+				<a aria-label="Help" class="config-info-toggle" data-cmd="info-download-qbz-logs" href="#notarget"><i class="fa-regular fa-sharp fa-info-circle"></i></a>
+				<span id="info-download-qbz-logs" class="config-help-info">
+					Collects everything needed to diagnose a Qobuz Connect problem into a single
+					<code>.tar.gz</code>: the renderer log, the event log, the moOde startup log,
+					the settings on this page, and what the renderer itself reports about its
+					status and audio device. Attach it to a bug report.
+					<br><br>
+					Turn on <b>System Config &gt; Debug logging</b> <i>before</i> reproducing the
+					problem &mdash; without it the renderer writes no log and the bundle has little
+					to say.
+					<br><br>
+					The bundle contains your player's name and the titles of tracks you played.
+					It is not uploaded anywhere; the download goes straight to your browser.
+				</span>
+			</div>
+
 		</div>
 	</form>
 </div>

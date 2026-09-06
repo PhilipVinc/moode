@@ -12,6 +12,97 @@ require_once __DIR__ . '/inc/sql.php';
 $dbh = sqlConnect();
 phpSession('open');
 
+// Download a diagnostics bundle.
+//
+// A useful Qobuz Connect bug report is four things: the renderer log, the event
+// log, what the daemon believes it is configured to do, and what moOde actually
+// pushed it. Asking a reporter for four of those over a forum thread reliably
+// produces one, a screenshot, or nothing -- so collect them here instead.
+//
+// Streams and exits, so it must run before any output. Nothing is written to
+// the card that is not removed again on the way out.
+if (isset($_POST['download_qbz_logs']) && $_POST['download_qbz_logs'] == '1') {
+	// The hostname is user-set and this name is interpolated into shell
+	// commands, so it is reduced to characters that cannot mean anything to a
+	// shell rather than trusted.
+	$bundleHost = preg_replace('/[^A-Za-z0-9_-]/', '', $_SESSION['hostname'] ?? '');
+	$bundleName = 'qobuz-connect-' . ($bundleHost == '' ? 'moode' : $bundleHost) .
+		'-' . date('Ymd-His');
+	$workDir = '/tmp/' . $bundleName;
+	$archive = $workDir . '.tar.gz';
+
+	// The report carries what is NOT already a file: the daemon's own view, the
+	// settings moOde pushed, and the audio chain those settings landed in.
+	$report = array();
+	$report[] = 'Qobuz Connect diagnostics';
+	$report[] = 'Collected        ' . date('Y-m-d H:i:s T');
+	$report[] = 'moOde            ' . getMoodeRel() . ' (' . php_uname('m') . ')';
+	$report[] = 'qbzd build       ' . (file_exists('/var/local/www/qbzd-build') ?
+		trim(file_get_contents('/var/local/www/qbzd-build')) : 'unknown');
+	$report[] = 'Renderer         ' . ($_SESSION['qobuzsvc'] == '1' ? 'on' : 'off');
+	// Without this, an empty renderer log looks like a daemon that logged
+	// nothing rather than one that was told not to log at all.
+	$report[] = 'Debug logging    ' . ($_SESSION['debuglog'] == '1' ?
+		'on' : 'OFF -- the renderer log below is stale or empty');
+	$report[] = 'Audio output     ' . qobuzSess('audioout', 'Local') .
+		', ALSA output mode ' . qobuzSess('alsa_output_mode', 'plughw');
+	$report[] = 'DSP stages       CamillaDSP=' . qobuzSess('camilladsp', 'off') .
+		' GraphicEQ=' . qobuzSess('alsaequal', 'Off') .
+		' ParametricEQ=' . qobuzSess('eqfa12p', 'Off') .
+		' Crossfeed=' . qobuzSess('crossfeed', 'Off');
+
+	$report[] = '';
+	$report[] = '--- moOde settings (cfg_qobuz) ---';
+	foreach (sqlRead('cfg_qobuz', $dbh) as $row) {
+		$report[] = sprintf('%-20s %s', $row['param'], $row['value']);
+	}
+
+	foreach (array(
+		'--- qbzd status ---' => 'qbzd status',
+		'--- qbzd settings ---' => 'qbzd settings show',
+		'--- audio devices ---' => 'aplay -l',
+		'--- card stream state ---' => 'cat /proc/asound/card*/stream0',
+		'--- memory ---' => 'free -m',
+		'--- qbzd process ---' => 'ps -eo pid,rss,etime,comm | grep -E "qbzd|RSS"',
+	) as $heading => $cmd) {
+		$report[] = '';
+		$report[] = $heading;
+		$report = array_merge($report, sysCmd($cmd));
+	}
+
+	// $workDir is made by the web user so PHP can write the report into it; the
+	// logs are root-owned, so they come across through sysCmd.
+	sysCmd('rm -rf ' . $workDir . ' ' . $archive);
+	@mkdir($workDir, 0755, true);
+	file_put_contents($workDir . '/report.txt', implode("\n", $report) . "\n");
+	foreach (array(QBZD_LOG, QBZEVENT_LOG, MOODE_LOG) as $log) {
+		sysCmd('cp -f ' . $log . ' ' . $workDir . '/');
+	}
+	sysCmd('chmod -R a+r ' . $workDir);
+	sysCmd('tar -czf ' . $archive . ' -C /tmp ' . $bundleName);
+	sysCmd('rm -rf ' . $workDir);
+
+	if (!file_exists($archive)) {
+		// Notify while the session is still open, or the message is lost.
+		$_SESSION['notify']['title'] = NOTIFY_TITLE_ALERT;
+		$_SESSION['notify']['msg'] = 'Could not collect the diagnostics. Download cancelled.';
+		phpSession('close');
+	} else {
+		phpSession('close');
+
+		header('Content-Description: File Transfer');
+		header('Content-Type: application/gzip');
+		header('Content-Transfer-Encoding: binary');
+		header('Content-Disposition: attachment; filename="' . $bundleName . '.tar.gz"');
+		header('Content-Length: ' . filesize($archive));
+		header('Pragma: no-cache');
+		header('Expires: 0');
+		readfile($archive);
+		sysCmd('rm -f ' . $archive);
+		exit();
+	}
+}
+
 if (isset($_POST['save']) && $_POST['save'] == '1') {
 	foreach ($_POST['config'] as $key => $value) {
 		chkValue($key, $value);
